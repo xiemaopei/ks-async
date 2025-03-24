@@ -190,6 +190,12 @@ protected:
 				m_native_completed_cv_data->belong_pid = __native_get_current_pid();
 				m_native_completed_cv_data->waiting_rc = 0;
 			}
+			else {
+				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
+					m_native_completed_cv_data->belong_pid = __native_get_current_pid();
+					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+				}
+			}
 
 			++m_native_completed_cv_data->waiting_rc;
 
