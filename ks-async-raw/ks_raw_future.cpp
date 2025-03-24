@@ -26,22 +26,18 @@ limitations under the License.
 #		include <processthreadsapi.h>
 		using __native_pid_t = DWORD;
 		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
-		static const __native_pid_t __native_invalid_pid = 0;
 #	elif defined(__APPLE__)
 #		include <sys/proc.h>
 		using __native_pid_t = int;
 		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
-		static const __native_pid_t __native_invalid_pid = 0;
 #	else
 #		include <unistd.h>
 		using __native_pid_t = pid_t;
 		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
-		static const __native_pid_t __native_invalid_pid = 0;
 #	endif
 #else
 	using __native_pid_t = int;
 	static inline __native_pid_t __native_get_current_pid() { return -1; }
-		static const __native_pid_t __native_invalid_pid = 0;
 #endif
 
 template <class FN>
@@ -67,16 +63,7 @@ class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_fr
 protected:
 	explicit ks_raw_future_baseimp(ks_raw_future_mode mode, bool cancelable, ks_apartment* spec_apartment, const ks_async_context& living_context)
 		: m_spec_apartment(spec_apartment), m_create_time(std::chrono::steady_clock::now()), m_living_context(living_context)
-		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {
-	}
-
-	~ks_raw_future_baseimp() {
-		if (m_completed_cv_belong_pid != __native_invalid_pid && m_completed_cv_belong_pid != __native_get_current_pid()) {
-			ASSERT(m_completed_cv_opt != nullptr);
-			m_completed_cv_opt.release(); //避免fork后卡死，不析构，直接丢弃
-			m_completed_cv_belong_pid = __native_invalid_pid;
-		}
-	}
+		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
 
@@ -190,23 +177,30 @@ protected:
 			return true;
 		}
 		else {
-			do {
-				__native_pid_t cur_pid = __native_get_current_pid();
-				if (m_completed_cv_belong_pid == __native_invalid_pid) {
-					ASSERT(m_completed_cv_opt == nullptr);
-					m_completed_cv_opt = std::make_unique<ks_condition_variable>();
-					m_completed_cv_belong_pid = cur_pid;
-				}
-				else if (m_completed_cv_belong_pid != cur_pid) {
-					ASSERT(m_completed_cv_opt != nullptr);
-					m_completed_cv_opt.release(); //避免fork后卡死，不析构，直接丢弃
-					m_completed_cv_opt = std::make_unique<ks_condition_variable>();
-					m_completed_cv_belong_pid = cur_pid;
+			if (m_native_completed_cv_data == nullptr) {
+				m_native_completed_cv_data = std::make_unique<__NATIVE_COMPLETED_CV_DATA>();
+				m_native_completed_cv_data->belong_pid = __native_get_current_pid();
+				m_native_completed_cv_data->waiting_rc = 0;
+			}
+
+			++m_native_completed_cv_data->waiting_rc;
+
+			while (true) {
+				m_native_completed_cv_data->cv.wait(lock);
+
+				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
+					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+					m_native_completed_cv_data->belong_pid = __native_get_current_pid();
 				}
 
-				ASSERT(m_completed_cv_opt != nullptr);
-				m_completed_cv_opt->wait(lock);
-			} while (!m_completed_result.is_completed());
+				if (m_completed_result.is_completed())
+					break;
+			};
+
+			if (--m_native_completed_cv_data->waiting_rc == 0) {
+				ASSERT(m_native_completed_cv_data->belong_pid == __native_get_current_pid());
+				m_native_completed_cv_data.reset();
+			}
 
 			return true;
 		}
@@ -300,9 +294,8 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_completed_cv_belong_pid != __native_invalid_pid && m_completed_cv_belong_pid == __native_get_current_pid()) {
-			ASSERT(m_completed_cv_opt != nullptr);
-			m_completed_cv_opt->notify_all();
+		if (m_native_completed_cv_data != nullptr && m_native_completed_cv_data->belong_pid == __native_get_current_pid()) {
+			m_native_completed_cv_data->cv.notify_all();
 		}
 
 		for (ks_apartment* apartment : m_waiting_for_me_apartment_set) {
@@ -443,8 +436,14 @@ protected:
 	ks_raw_result m_completed_result;
 	ks_apartment* m_completed_prefer_apartment = nullptr;
 
-	std::unique_ptr<ks_condition_variable> m_completed_cv_opt = nullptr; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
-	__native_pid_t m_completed_cv_belong_pid = __native_invalid_pid; //记录cv所属pid，保证进程内操作cv的一致性
+	//fork子进程中操作cv有几率死锁，故子进程中不要使用它！
+	//记录cv所属pid，保证进程内操作cv的一致性
+	struct __NATIVE_COMPLETED_CV_DATA {
+		ks_condition_variable cv;
+		__native_pid_t belong_pid;
+		int waiting_rc;
+	};
+	std::unique_ptr<__NATIVE_COMPLETED_CV_DATA> m_native_completed_cv_data = nullptr;
 
 	ks_async_context m_living_context; //在complete后被自动清除
 	//volatile bool m_living_context_controller_available_v = false;  //被移动位置，使内存更紧凑
