@@ -1184,7 +1184,7 @@ void ks_raw_future::try_cancel(bool backtrack) {
 	this->do_try_cancel(ks_error::cancelled_error(), backtrack);
 }
 
-bool ks_raw_future::check_current_future_cancel(bool with_extra) {
+bool ks_raw_future::__check_current_future_cancel(bool with_extra) {
 	ks_raw_future* cur_future = tls_current_thread_running_future;
 	if (cur_future != nullptr) {
 		if (cur_future->do_check_cancel())
@@ -1200,7 +1200,7 @@ bool ks_raw_future::check_current_future_cancel(bool with_extra) {
 	return false;
 }
 
-ks_error ks_raw_future::get_current_future_cancel_error(bool with_extra) {
+ks_error ks_raw_future::__get_current_future_cancel_error(bool with_extra) {
 	ks_raw_future* cur_future = tls_current_thread_running_future;
 	if (cur_future != nullptr) {
 		ks_error error = cur_future->do_acquire_cancel_error(ks_error());

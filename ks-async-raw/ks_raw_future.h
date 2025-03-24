@@ -64,8 +64,8 @@ public:
 	virtual ks_raw_result peek_result() = 0;
 
 	virtual void try_cancel(bool backtrack);
-	KS_ASYNC_API static bool check_current_future_cancel(bool with_extra);
-	KS_ASYNC_API static ks_error get_current_future_cancel_error(bool with_extra);
+	KS_ASYNC_API static bool __check_current_future_cancel(bool with_extra);
+	KS_ASYNC_API static ks_error __get_current_future_cancel_error(bool with_extra);
 
 	virtual void set_timeout(int64_t timeout, bool backtrack);
 
