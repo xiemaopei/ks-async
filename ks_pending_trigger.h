@@ -26,13 +26,13 @@ public:
 	~ks_pending_trigger() {
 		if (!m_pending_promise->get_future()->peek_result().is_completed()) {
 			ASSERT(false);
-			m_pending_promise->resolve(ks_raw_value::of(nothing)); //auto start
+			m_pending_promise->resolve(ks_raw_value::of<nothing_t>(nothing)); //auto start
 		}
 	}
 
 public:
 	void start() {
-		m_pending_promise->resolve(ks_raw_value::of(nothing));
+		m_pending_promise->resolve(ks_raw_value::of<nothing_t>(nothing));
 	}
 	void cancel() {
 		m_pending_promise->reject(ks_error::cancelled_error());

@@ -31,20 +31,14 @@ public:
 	ks_raw_value& operator=(ks_raw_value&&) noexcept = default;
 
 public:
-	template <class T>
-	static ks_raw_value of(const T& x) {
-		return ks_raw_value(x, 0);
-	}
-	template <class T>
-	static ks_raw_value of(T&& x) {
-		return ks_raw_value(std::forward<T>(x), 0);
+	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
+	static ks_raw_value of(X&& x) {
+		return ks_raw_value().__init<T>(std::forward<X>(x));
 	}
 
 private:
-	template <class T>
-	explicit ks_raw_value(const T& x, int) : m_any(ks_any::of(x)) {}
-	template <class T>
-	explicit ks_raw_value(T&& x, int) : m_any(ks_any::of(std::forward<T>(x))) {}
+	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
+	ks_raw_value& __init(X&& x) { m_any = ks_any::of<T>(std::forward<X>(x)); return *this; }
 
 public:
 	template <class T>

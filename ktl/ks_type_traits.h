@@ -196,6 +196,7 @@ namespace std {
 	template <class X>
 	struct weak_pointer_traits<std::weak_ptr<X>> {
 		static constexpr bool is_weak_pointer_v = true;
+		using strong_locker_type = std::shared_ptr<X>;
 		static std::shared_ptr<X> try_lock_weak_pointer(const std::weak_ptr<X>& pointer) { return pointer.lock(); }
 		static void unlock_weak_pointer(const std::weak_ptr<X>& pointer, std::shared_ptr<X>& locker) { locker.reset(); }
 		static bool check_weak_pointer_expired(const std::weak_ptr<X>& pointer) { return pointer.expired(); }

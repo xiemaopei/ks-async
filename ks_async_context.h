@@ -134,7 +134,7 @@ private:
 		do_prepare_fat_data_cow();
 
 		_FAT_DATA* fatData = m_fat_data_p;
-		fatData->owner_ptr = ks_any::of(std::forward<SMART_PTR>(owner_ptr));
+		fatData->owner_ptr = ks_any::of<SMART_PTR>(std::forward<SMART_PTR>(owner_ptr));
 		fatData->owner_ptr_is_weak = true;
 
 		fatData->owner_pointer_check_expired_fn = [owner_ptr]() {
@@ -144,7 +144,7 @@ private:
 		fatData->owner_pointer_try_lock_fn = [owner_ptr]() {
 			auto typed_locker = std::weak_pointer_traits<SMART_PTR>::try_lock_weak_pointer(owner_ptr);
 			if (typed_locker)
-				return ks_any::of(std::move(typed_locker));
+				return ks_any::of<decltype(typed_locker)>(std::move(typed_locker));
 			std::weak_pointer_traits<SMART_PTR>::unlock_weak_pointer(owner_ptr, typed_locker);
 			return ks_any();
 		};
@@ -164,7 +164,7 @@ private:
 		do_prepare_fat_data_cow();
 
 		_FAT_DATA* fatData = m_fat_data_p;
-		fatData->owner_ptr = ks_any::of(std::forward<SMART_PTR>(owner_ptr));
+		fatData->owner_ptr = ks_any::of<SMART_PTR>(std::forward<SMART_PTR>(owner_ptr));
 		fatData->owner_ptr_is_weak = false;
 	}
 
@@ -278,11 +278,11 @@ private:
 		const bool parent_need_lock = fat_data_p != nullptr && fat_data_p->parent_fat_data_p != nullptr && __do_check_need_lock_owner_ptr(fat_data_p->parent_fat_data_p);
 
 		if (owner_need_lock && parent_need_lock) {
-			ks_any self_locker = fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of(true);
+			ks_any self_locker = fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of<bool>(true);
 			if (self_locker.has_value()) {
 				ks_any parent_locker = __do_lock_owner_ptr(fat_data_p->parent_fat_data_p);
 				if (parent_locker.has_value())
-					return ks_any::of(std::make_pair(self_locker, parent_locker));
+					return ks_any::of<std::pair<ks_any, ks_any>>(std::make_pair(self_locker, parent_locker));
 
 				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, parent_locker);
 			}
@@ -297,7 +297,7 @@ private:
 			return fat_data_p->owner_pointer_try_lock_fn();
 		}
 		else {
-			return ks_any::of(true);
+			return ks_any::of<bool>(true);
 		}
 	}
 

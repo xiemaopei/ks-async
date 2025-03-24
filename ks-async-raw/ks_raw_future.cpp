@@ -165,6 +165,8 @@ protected:
 			return true;
 
 		ks_apartment* cur_apartment = ks_apartment::current_thread_apartment();
+		ASSERT(cur_apartment == nullptr || (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0);
+
 		if (cur_apartment != nullptr && (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0) {
 			ASSERT(lock.owns_lock());
 			m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，但不必重复记录，因为至多仅顶层可能会卡在真cv.wait调用处
@@ -1039,7 +1041,7 @@ private:
 				prev_value_seq.reserve(m_prev_result_seq_cache.size());
 				for (auto& prev_result : m_prev_result_seq_cache)
 					prev_value_seq.push_back(prev_result.to_value());
-				this->do_complete_locked<must_keep_locked>(ks_raw_value::of(std::move(prev_value_seq)), prefer_apartment, true, lock);
+				this->do_complete_locked<must_keep_locked>(ks_raw_value::of<std::vector<ks_raw_value>>(std::move(prev_value_seq)), prefer_apartment, true, lock);
 				return;
 			}
 			else {
@@ -1051,7 +1053,7 @@ private:
 				//前序任务全部完成（无论成功/失败）
 				ks_apartment* prefer_apartment = this->do_determine_prefer_apartment_from_prev_seq_locked(prev_advice_apartment, lock);
 				std::vector<ks_raw_result> prev_result_seq = m_prev_result_seq_cache;
-				this->do_complete_locked<must_keep_locked>(ks_raw_value::of(std::move(prev_result_seq)), prefer_apartment, true, lock);
+				this->do_complete_locked<must_keep_locked>(ks_raw_value::of<std::vector<ks_raw_result>>(std::move(prev_result_seq)), prefer_apartment, true, lock);
 				return;
 			}
 			else {
@@ -1157,7 +1159,7 @@ ks_raw_future_ptr ks_raw_future::post_delayed(function<ks_raw_result()>&& task_f
 
 ks_raw_future_ptr ks_raw_future::all(const std::vector<ks_raw_future_ptr>& futures, ks_apartment* apartment) {
 	if (futures.empty())
-		return ks_raw_future::resolved(ks_raw_value::of(std::vector<ks_raw_value>()), apartment);
+		return ks_raw_future::resolved(ks_raw_value::of<std::vector<ks_raw_value>>(std::vector<ks_raw_value>()), apartment);
 
 	auto aggr_future = std::make_shared<ks_raw_aggr_future>(ks_raw_future_mode::ALL, apartment);
 	aggr_future->connect(futures);
@@ -1166,7 +1168,7 @@ ks_raw_future_ptr ks_raw_future::all(const std::vector<ks_raw_future_ptr>& futur
 
 ks_raw_future_ptr ks_raw_future::all_completed(const std::vector<ks_raw_future_ptr>& futures, ks_apartment* apartment) {
 	if (futures.empty())
-		return ks_raw_future::resolved(ks_raw_value::of(std::vector<ks_raw_result>()), apartment);
+		return ks_raw_future::resolved(ks_raw_value::of<std::vector<ks_raw_result>>(std::vector<ks_raw_result>()), apartment);
 
 	auto aggr_future = std::make_shared<ks_raw_aggr_future>(ks_raw_future_mode::ALL_COMPLETED, apartment);
 	aggr_future->connect(futures);

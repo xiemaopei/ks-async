@@ -99,12 +99,12 @@ private:
 			&& sizeof(XT) <= sizeof(m_embed_tiny_trivial_x_mem);
 	}
 
-	template <class T>
-	ks_any& __init(T&& x, std::bool_constant<true>) {
+	template <class T, class X = T, class = std::enable_if_t<std::is_convertible_v<X, std::remove_cvref_t<T>>>>
+	ks_any& __init(X&& x, std::bool_constant<true>) {
 		using XT = std::remove_cvref_t<T>;
 		ASSERT(!this->has_value());
 
-		*(XT*)(void*)(&m_embed_tiny_trivial_x_mem) = x;
+		*(XT*)(void*)(&m_embed_tiny_trivial_x_mem) = std::forward<X>(x);
 		m_data_p = (_DATA_HEADER*)(void*)(-1);
 
 #ifdef _DEBUG
@@ -114,8 +114,8 @@ private:
 		return *this;
 	}
 
-	template <class T>
-	ks_any& __init(T&& x, std::bool_constant<false>) {
+	template <class T, class X = T, class = std::enable_if_t<std::is_convertible_v<X, std::remove_cvref_t<T>>>>
+	ks_any& __init(X&& x, std::bool_constant<false>) {
 		using XT = std::remove_cvref_t<T>;
 		ASSERT(!this->has_value());
 
@@ -124,7 +124,7 @@ private:
 		::new ((void*)data_p) _DATA_HEADER();
 		data_p->x_offset = int(x_offset);
 		data_p->x_dtor = [](void* px) { ((XT*)px)->~XT(); };
-		::new (data_p->x_addr()) XT(std::forward<T>(x));
+		::new (data_p->x_addr()) XT(std::forward<X>(x));
 		m_data_p = data_p;
 
 #ifdef _DEBUG
@@ -135,15 +135,10 @@ private:
 	}
 
 public:
-	template <class T>
-	static ks_any of(const T& x) {
+	template <class T, class X = T, class = std::enable_if_t<std::is_convertible_v<X, std::remove_cvref_t<T>>>>
+	static ks_any of(X&& x) {
 		constexpr bool can_embed = __can_embed_tiny_trivial_x<T>();
-		return ks_any().__init(x, std::bool_constant<can_embed>());
-	}
-	template <class T>
-	static ks_any of(T&& x) {
-		constexpr bool can_embed = __can_embed_tiny_trivial_x<T>();
-		return ks_any().__init(std::forward<T>(x), std::bool_constant<can_embed>());
+		return ks_any().__init<T>(std::forward<X>(x), std::bool_constant<can_embed>());
 	}
 
 	bool has_value() const {

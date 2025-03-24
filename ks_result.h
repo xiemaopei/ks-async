@@ -22,8 +22,8 @@ limitations under the License.
 template <class T>
 class ks_result final {
 public:
-	ks_result(const T& value) : m_raw_result(ks_raw_value::of(value)) {}
-	ks_result(T&& value) : m_raw_result(ks_raw_value::of(std::move(value))) {}
+	ks_result(const T& value) : m_raw_result(ks_raw_value::of<T>(value)) {}
+	ks_result(T&& value) : m_raw_result(ks_raw_value::of<T>(std::move(value))) {}
 
 	ks_result(const ks_error& error) : m_raw_result(error) {}
 	ks_result(ks_error&& error) : m_raw_result(std::move(error)) {}
@@ -102,7 +102,7 @@ private:
 
 	template <class R>
 	ks_result<R> __do_cast(std::integral_constant<__raw_cast_mode_t, __raw_cast_mode_t::to_nothing> __cast_mode) const {
-		ks_raw_result raw_result2 = m_raw_result.is_value() ? ks_raw_value::of(nothing) : m_raw_result;
+		ks_raw_result raw_result2 = m_raw_result.is_value() ? ks_raw_value::of<nothing_t>(nothing) : m_raw_result;
 		return ks_result<R>::__from_raw(raw_result2);
 	}
 

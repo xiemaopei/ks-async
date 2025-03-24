@@ -58,12 +58,12 @@ public:
 
 	void resolve(const T& value) const {
 		ASSERT(this->is_valid());
-		m_raw_promise->resolve(ks_raw_value::of(value));
+		m_raw_promise->resolve(ks_raw_value::of<T>(value));
 	}
 
 	void resolve(T&& value) const {
 		ASSERT(this->is_valid());
-		m_raw_promise->resolve(ks_raw_value::of(std::move(value)));
+		m_raw_promise->resolve(ks_raw_value::of<T>(std::move(value)));
 	}
 
 	void reject(const ks_error& error) const {

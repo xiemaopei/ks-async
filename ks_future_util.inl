@@ -94,7 +94,7 @@ public: //tuple aggr
 				[](const ks_raw_value& raw_value_aggr) -> ks_raw_result {
 					const std::vector<ks_raw_value>& raw_value_vector = raw_value_aggr.get<std::vector<ks_raw_value>>();
 					std::tuple<Ts...> typed_value_tuple = __convert_raw_value_vector_to_typed_value_tuple<Ts...>(raw_value_vector, std::index_sequence_for<Ts...>());
-					return ks_raw_value::of(std::move(typed_value_tuple));
+					return ks_raw_value::of<std::tuple<Ts...>>(std::move(typed_value_tuple));
 				}, make_async_context().set_priority(0x10000), nullptr);
 		//for all(), when error, auto cancel other not-completed futures
 		if (true) {
@@ -113,7 +113,7 @@ public: //tuple aggr
 		ks_raw_future_ptr raw_future = ks_raw_future::all(raw_arg_futures, nullptr)
 			->then(
 				[](const ks_raw_value& raw_value_aggr) -> ks_raw_result {
-					return ks_raw_value::of(nothing);
+					return ks_raw_value::of<nothing_t>(nothing);
 				}, make_async_context().set_priority(0x10000), nullptr);
 		//for all(), when error, auto cancel other not-completed futures
 		if (true) {
@@ -155,7 +155,7 @@ public: //vector aggr
 					typed_value_vector.reserve(raw_value_vector.size());
 					for (auto& raw_value : raw_value_vector)
 						typed_value_vector.push_back(raw_value.get<T>());
-					return ks_raw_value::of(std::move(typed_value_vector));
+					return ks_raw_value::of<std::vector<T>>(std::move(typed_value_vector));
 				}, make_async_context().set_priority(0x10000), nullptr);
 		//for all(), when error, auto cancel other not-completed futures
 		if (true) {
@@ -175,7 +175,7 @@ public: //vector aggr
 		ks_raw_future_ptr raw_future = ks_raw_future::all(raw_arg_futures, nullptr)
 			->then(
 				[](const ks_raw_value& raw_value_aggr) -> ks_raw_result {
-					return ks_raw_value::of(nothing);
+					return ks_raw_value::of<nothing_t>(nothing);
 				}, make_async_context().set_priority(0x10000), nullptr);
 		//for all(), when error, auto cancel other not-completed futures
 		if (true) {
@@ -641,7 +641,7 @@ private:
 private:
 	static ks_raw_result __last_error_to_raw_result_void(const ks_error& error) {
 		if (error.get_code() == 0 || error.get_code() == ks_error::EOF_ERROR_CODE)
-			return ks_raw_value::of(nothing);
+			return ks_raw_value::of<nothing_t>(nothing);
 		else
 			return error;
 	}
