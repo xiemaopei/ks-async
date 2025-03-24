@@ -172,13 +172,17 @@ protected:
 			lock.unlock();
 			bool was_satisfied = cur_apartment->__do_run_nested_pump_loop_for_extern_waiting(
 				this,
-				[this, this_shared = this->shared_from_this()]() -> bool { return m_completed_result.is_completed(); }
-			);
+				[this, this_shared = this->shared_from_this()]() -> bool { return m_completed_result.is_completed(); });
+			ASSERT(was_satisfied);
 
 			lock.lock();
 			m_waiting_for_me_apartment_set.erase(cur_apartment); //若退嵌套loop则会遭遇缺失项，这是正常的
 
 			if (!m_completed_result.is_completed()) {
+				//若nested_pump_loop已退出，但又非completed，理论上是在atforking了，那么我们只能立即结束future的wait，
+				//又因wait结束，那么也只好将当前future标记为失败了，因为后续此future理所当然会被认为是completed状态了，
+				//但实际上我们期望不要发生此情形，即在有future在wait时不应进行进程fork，因此这里ASSERT(false)。
+				ASSERT(false);
 				ASSERT(!was_satisfied);
 				this->do_complete_locked<false>(ks_error::interrupted_error(), cur_apartment, false, lock);
 				return false;
