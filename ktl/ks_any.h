@@ -152,11 +152,30 @@ public:
 
 	template <class T>
 	const T& get() const {
-		return this->cast<T>();
+		return this->__cast<T>();
 	}
 
+	void reset() {
+		if (m_data_p != nullptr && m_data_p != (void*)(-1)) {
+			if (--m_data_p->ref_count == 0) {
+				m_data_p->x_dtor(m_data_p->x_addr());
+				m_data_p->~_DATA_HEADER();
+				free((void*)m_data_p);
+			}
+		}
+
+		m_data_p = nullptr;
+		m_embed_tiny_trivial_x_mem = {};
+
+#ifdef _DEBUG
+		m_x_typeinfo = nullptr;
+		m_x_sizeof = 0;
+#endif
+	}
+
+private:
 	template <class T>
-	T& cast() {
+	const T& __cast() const {
 		using XT = std::remove_cvref_t<T>;
 
 		ASSERT(this->has_value());
@@ -177,29 +196,6 @@ public:
 			ASSERT(!__can_embed_tiny_trivial_x<XT>());
 			return *(XT*)m_data_p->x_addr();
 		}
-	}
-
-	template <class T>
-	const T& cast() const {
-		return const_cast<ks_any*>(this)->cast<T>();
-	}
-
-	void reset() {
-		if (m_data_p != nullptr && m_data_p != (void*)(-1)) {
-			if (--m_data_p->ref_count == 0) {
-				m_data_p->x_dtor(m_data_p->x_addr());
-				m_data_p->~_DATA_HEADER();
-				free((void*)m_data_p);
-			}
-		}
-
-		m_data_p = nullptr;
-		m_embed_tiny_trivial_x_mem = {};
-
-#ifdef _DEBUG
-		m_x_typeinfo = nullptr;
-		m_x_sizeof = 0;
-#endif
 	}
 
 private:

@@ -262,16 +262,16 @@ public: //parallel, parallel_n
 				apartment, std::forward<FN>(fn), context);
 		}
 		else {
-			std::function<std::invoke_result_t<FN>()> fn_wrapper = std::forward<FN>(fn);
-
 			std::vector<ks_future<void>> future_vec;
 			future_vec.reserve(n);
+
 			for (size_t i = 0; i < n; ++i) {
 				future_vec.push_back(
-					ks_future_util::post<void>(apartment, fn_wrapper, context)
+					ks_future_util::post<void>(apartment, fn, context)
 				);
 			}
 
+			std::prune_if_rvalue(std::forward<FN>(fn));
 			return ks_future_util::all(future_vec);
 		}
 	}
@@ -304,7 +304,7 @@ public: //sequential, sequential_n
 			std::shared_ptr<__sequential_data_t> data = std::make_shared< __sequential_data_t>();
 			data->fns = fns;
 
-			auto fn_wrapper = [apartment, data]() -> ks_future<void> {
+			const auto fn_wrapper = [apartment, data]() -> ks_future<void> {
 				if (data->index < data->fns.size()) {
 					const auto& fn = data->fns[data->index];
 					data->index++;
@@ -436,7 +436,7 @@ public: //repeat, repeat_periodic, repeat_productive
 		data->fn = __wrap_async_fn_0<void>(std::forward<FN>(fn));
 		data->delay = delay;
 		data->interval = interval;
-		data->context = context;
+		data->context = std::dup(context).bind_parent(make_async_context().bind_controller(&data->controller));
 		data->create_time = std::chrono::steady_clock::now();
 		data->raw_final_promise_void = ks_raw_promise::create(apartment);
 
@@ -446,7 +446,7 @@ public: //repeat, repeat_periodic, repeat_productive
 				if (error.get_code() == ks_error::CANCELLED_ERROR_CODE) {
 					auto data = data_weak.lock();
 					if (data != nullptr)
-						data->cancel_ctrl_v = true;
+						data->controller.try_cancel_all();
 				}
 			},
 			make_async_context().set_priority(0x10000), apartment);
@@ -482,7 +482,7 @@ public: //repeat, repeat_periodic, repeat_productive
 		data->consume_apartment = consume_apartment;
 		data->produce_fn = __wrap_async_fn_0<V>(std::forward<PRODUCE_FN>(produce_fn));
 		data->consume_fn = __wrap_async_fn_1<void, V>(std::forward<CONSUME_FN>(consume_fn));
-		data->context = context;
+		data->context = std::dup(context).bind_parent(make_async_context().bind_controller(&data->controller));
 		data->create_time = std::chrono::steady_clock::now();
 		data->raw_final_promise_void = ks_raw_promise::create(consume_apartment);
 
@@ -492,7 +492,7 @@ public: //repeat, repeat_periodic, repeat_productive
 				if (error.get_code() == ks_error::CANCELLED_ERROR_CODE) {
 					auto data = data_weak.lock();
 					if (data != nullptr)
-						data->cancel_ctrl_v = true;
+						data->controller.try_cancel_all();
 				}
 			}, 
 			make_async_context().set_priority(0x10000), produce_apartment);
@@ -512,7 +512,8 @@ private:
 
 		std::chrono::steady_clock::time_point create_time{};
 		uint64_t rounds = 0;
-		volatile bool cancel_ctrl_v = false;
+
+		ks_async_controller controller{};
 		ks_raw_promise_ptr raw_final_promise_void = nullptr;
 	};
 
@@ -520,43 +521,22 @@ private:
 		ks_future_util
 			::post_delayed<void>(
 				data->apartment,
-				[data]() -> ks_result<void> {
-					if (data->cancel_ctrl_v)
-						return ks_error::cancelled_error();
-					else
-						return nothing;
-				},
-				next_delay, data->context)
+				data->fn,
+				next_delay, 
+				data->context)
 			.on_completion(
 				data->apartment,
-				[data](const ks_result<void>& schedule_result) {
-					__on_trigger_periodic_once(data, schedule_result);
-				},
-				make_async_context().set_priority(0x10000));
-	}
-
-	static void __on_trigger_periodic_once(const std::shared_ptr<__periodic_data_t>& data, const ks_result<void>& schedule_result) {
-		if (!schedule_result.is_value()) {
-			data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(schedule_result.to_error()));
-			return;
-		}
-
-		ks_future_util
-			::post<void>(data->apartment, data->fn)
-			.on_success(
-				data->apartment,
-				[data]() {
-					data->rounds++;
-					const std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
-					const std::chrono::steady_clock::time_point next_time = data->create_time + std::chrono::milliseconds((long long)(data->delay + data->interval * data->rounds));
-					const int64_t next_delay = std::chrono::duration_cast<std::chrono::milliseconds>(next_time - now_time).count();
-					__schedule_periodic_once(data, next_delay);
-				},
-				make_async_context().set_priority(0x10000))
-			.on_failure(
-				data->apartment,
-				[data](const ks_error& error) {
-					data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(error));
+				[data](const ks_result<void>& result) {
+					if (result.is_value()) {
+						data->rounds++;
+						const std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
+						const std::chrono::steady_clock::time_point next_time = data->create_time + std::chrono::milliseconds((long long)(data->delay + data->interval * data->rounds));
+						const int64_t next_delay = std::chrono::duration_cast<std::chrono::milliseconds>(next_time - now_time).count();
+						__schedule_periodic_once(data, next_delay);
+					}
+					else {
+						data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(result.to_error()));
+					}
 				},
 				make_async_context().set_priority(0x10000));
 	}
@@ -572,7 +552,8 @@ private:
 
 		std::chrono::steady_clock::time_point create_time{};
 		uint64_t rounds = 0;
-		volatile bool cancel_ctrl_v = false;
+
+		ks_async_controller controller{};
 		ks_raw_promise_ptr raw_final_promise_void = nullptr;
 	};
 
@@ -581,44 +562,24 @@ private:
 		ks_future_util
 			::post<V>(
 				data->produce_apartment,
-				[data]() -> ks_future<V> {
-					if (data->cancel_ctrl_v)
-						return ks_future<V>::rejected(ks_error::cancelled_error());
-					ks_future<V> fut = data->produce_fn();
-					ASSERT(fut.is_valid());
-					if (!fut.is_valid())
-						fut = ks_future<V>::rejected(ks_error::unexpected_error());
-					return fut;
-				},
+				data->produce_fn,
 				data->context)
 			.template flat_then<void>(
 				data->consume_apartment,
-				[data](const V& value) -> ks_future<void> {
-					if (data->cancel_ctrl_v)
-						return ks_future<void>::rejected(ks_error::cancelled_error());
-					ks_future<void> fut = data->consume_fn(value);
-					ASSERT(fut.is_valid());
-					if (!fut.is_valid())
-						fut = ks_future<void>::rejected(ks_error::unexpected_error());
-					return fut;
-				},
+				data->consume_fn,
 				data->context)
-					.on_completion(
-						data->consume_apartment,
-						[data](const ks_result<void>& result) {
-							if (result.is_value()) {
-								data->rounds++;
-								__pump_repetitive_once<V>(data);
-							}
-							else {
-								ks_error error = result.to_error();
-								if (error.get_code() == 0 || error.get_code() == ks_error::EOF_ERROR_CODE)
-									data->raw_final_promise_void->resolve(ks_raw_value::of(nothing));
-								else
-									data->raw_final_promise_void->reject(error);
-							}
-						},
-						make_async_context().set_priority(0x10000));
+			.on_completion(
+				data->consume_apartment,
+				[data](const ks_result<void>& result) {
+					if (result.is_value()) {
+						data->rounds++;
+						__pump_repetitive_once<V>(data);
+					}
+					else {
+						data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(result.to_error()));
+					}
+				},
+				make_async_context().set_priority(0x10000));
 	}
 
 private:
@@ -635,31 +596,28 @@ private:
 
 	template <class T, class FN>
 	static std::function<ks_future<void>()> __wrap_async_fn_0_by_ret(FN&& fn, std::integral_constant<int, -1>) {
-		return[fn = std::forward<FN>(fn)]() -> ks_future<void> {
+		return [fn = std::forward<FN>(fn)]() -> ks_future<void> {
 			fn();
 			return ks_future<void>::resolved(nothing);
 		};
 	}
 	template <class T, class FN>
 	static std::function<ks_future<T>()> __wrap_async_fn_0_by_ret(FN&& fn, std::integral_constant<int, 1>) {
-		return[fn = std::forward<FN>(fn)]()->ks_future<T> {
+		return [fn = std::forward<FN>(fn)]()->ks_future<T> {
 			T value = fn();
 			return ks_future<T>::resolved(std::move(value));
 		};
 	}
 	template <class T, class FN>
 	static std::function<ks_future<T>()> __wrap_async_fn_0_by_ret(FN&& fn, std::integral_constant<int, 2>) {
-		return[fn = std::forward<FN>(fn)]()->ks_future<T> {
+		return [fn = std::forward<FN>(fn)]()->ks_future<T> {
 			ks_result<T> result = fn();
 			return ks_future<T>::__from_result(result);
 		};
 	}
 	template <class T, class FN>
 	static std::function<ks_future<T>()> __wrap_async_fn_0_by_ret(FN&& fn, std::integral_constant<int, 3>) {
-		return[fn = std::forward<FN>(fn)]()->ks_future<T> {
-			ks_future<T> future = fn();
-			return future;
-		};
+		return std::forward<FN>(fn);
 	}
 
 private:
@@ -676,31 +634,28 @@ private:
 
 	template <class T, class ARG1, class FN>
 	static std::function<ks_future<void>(const ARG1&)> __wrap_async_fn_1_by_ret(FN&& fn, std::integral_constant<int, -1>) {
-		return[fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<void> {
+		return [fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<void> {
 			fn(arg1);
 			return ks_future<void>::resolved(nothing);
 		};
 	}
 	template <class T, class ARG1, class FN>
 	static std::function<ks_future<T>(const ARG1&)> __wrap_async_fn_1_by_ret(FN&& fn, std::integral_constant<int, 1>) {
-		return[fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<T> {
+		return [fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<T> {
 			T value = fn(arg1);
 			return ks_future<T>::resolved(std::move(value));
 		};
 	}
 	template <class T, class ARG1, class FN>
 	static std::function<ks_future<T>(const ARG1&)> __wrap_async_fn_1_by_ret(FN&& fn, std::integral_constant<int, 2>) {
-		return[fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<T> {
+		return [fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<T> {
 			ks_result<T> result = fn(arg1);
 			return ks_future<T>::__from_result(result);
 		};
 	}
 	template <class T, class ARG1, class FN>
 	static std::function<ks_future<T>(const ARG1&)> __wrap_async_fn_1_by_ret(FN&& fn, std::integral_constant<int, 3>) {
-		return[fn = std::forward<FN>(fn)](const ARG1& arg1)->ks_future<T> {
-			ks_future<T> future = fn(arg1);
-			return future;
-		};
+		return std::forward<FN>(fn);
 	}
 
 private:

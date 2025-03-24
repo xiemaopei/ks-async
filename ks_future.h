@@ -592,7 +592,7 @@ private: //__choose_transform
 	}
 
 private: //__post
-	static ks_future<T> __post_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()>&& task_fn) {
+	static ks_future<T> __post_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()> task_fn) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -603,7 +603,7 @@ private: //__post
 		ks_raw_future_ptr raw_future = ks_raw_future::post(std::move(raw_task_fn), context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()>&& task_fn) {
+	static ks_future<T> __post_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()> task_fn) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -614,11 +614,11 @@ private: //__post
 		ks_raw_future_ptr raw_future = ks_raw_future::post(std::move(raw_task_fn), context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()>&& task_fn) {
+	static ks_future<T> __post_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()> task_fn) {
 		return ks_future<ks_future<T>>::post(apartment, context, std::move(task_fn))
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) ->ks_future<T> { return value_future; });
 	}
-	static ks_future<T> __post_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)>&& task_fn) {
+	static ks_future<T> __post_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)> task_fn) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -629,7 +629,7 @@ private: //__post
 		ks_raw_future_ptr raw_future = ks_raw_future::post(std::move(raw_task_fn), context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)>&& task_fn) {
+	static ks_future<T> __post_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)> task_fn) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -640,13 +640,13 @@ private: //__post
 		ks_raw_future_ptr raw_future = ks_raw_future::post(std::move(raw_task_fn), context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)>&& task_fn) {
+	static ks_future<T> __post_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)> task_fn) {
 		return ks_future<ks_future<T>>::post(apartment, context, std::move(task_fn))
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) ->ks_future<T> { return value_future; });
 	}
 
 private: //__post_delayed
-	static ks_future<T> __post_delayed_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()> task_fn, int64_t delay) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -657,7 +657,7 @@ private: //__post_delayed
 		ks_raw_future_ptr raw_future = ks_raw_future::post_delayed(std::move(raw_task_fn), context, apartment, delay);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_delayed_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()> task_fn, int64_t delay) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -668,11 +668,11 @@ private: //__post_delayed
 		ks_raw_future_ptr raw_future = ks_raw_future::post_delayed(std::move(raw_task_fn), context, apartment, delay);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_delayed_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()> task_fn, int64_t delay) {
 		return ks_future<ks_future<T>>::post_delayed(apartment, context, std::move(task_fn), delay)
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) -> ks_future<T> { return value_future; });
 	}
-	static ks_future<T> __post_delayed_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)> task_fn, int64_t delay) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -683,7 +683,7 @@ private: //__post_delayed
 		ks_raw_future_ptr raw_future = ks_raw_future::post_delayed(std::move(raw_task_fn), context, apartment, delay);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_delayed_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)> task_fn, int64_t delay) {
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
 			apartment = ks_apartment::current_thread_apartment_or_default_mta();
@@ -694,13 +694,13 @@ private: //__post_delayed
 		ks_raw_future_ptr raw_future = ks_raw_future::post_delayed(std::move(raw_task_fn), context, apartment, delay);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_delayed_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)>&& task_fn, int64_t delay) {
+	static ks_future<T> __post_delayed_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)> task_fn, int64_t delay) {
 		return ks_future<ks_future<T>>::post_delayed(apartment, context, std::move(task_fn), delay)
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) -> ks_future<T> { return value_future; });
 	}
 
 private: //__post_pending
-	static ks_future<T> __post_pending_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T()> task_fn, ks_pending_trigger* trigger) {
 		ASSERT(apartment != nullptr);
 		ASSERT(trigger != nullptr);
 		if (apartment == nullptr)
@@ -714,7 +714,7 @@ private: //__post_pending
 			: ks_raw_future::resolved(ks_raw_value::of(nothing), ks_apartment::current_thread_apartment_or(apartment))->then(raw_task_fn, context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_pending_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>()> task_fn, ks_pending_trigger* trigger) {
 		ASSERT(apartment != nullptr);
 		ASSERT(trigger != nullptr);
 		if (apartment == nullptr)
@@ -728,11 +728,11 @@ private: //__post_pending
 			: ks_raw_future::resolved(ks_raw_value::of(nothing), ks_apartment::current_thread_apartment_or(apartment))->then(raw_task_fn, context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_pending_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>()> task_fn, ks_pending_trigger* trigger) {
 		return ks_future<ks_future<T>>::post_pending(apartment, context, std::move(task_fn), trigger)
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) -> ks_future<T> { return value_future; });
 	}
-	static ks_future<T> __post_pending_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<T(ks_cancel_inspector*)> task_fn, ks_pending_trigger* trigger) {
 		ASSERT(apartment != nullptr);
 		ASSERT(trigger != nullptr);
 		if (apartment == nullptr)
@@ -746,7 +746,7 @@ private: //__post_pending
 			: ks_raw_future::resolved(ks_raw_value::of(nothing), ks_apartment::current_thread_apartment_or(apartment))->then(raw_task_fn, context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_pending_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<T>(ks_cancel_inspector*)> task_fn, ks_pending_trigger* trigger) {
 		ASSERT(apartment != nullptr);
 		ASSERT(trigger != nullptr);
 		if (apartment == nullptr)
@@ -760,14 +760,14 @@ private: //__post_pending
 			: ks_raw_future::resolved(ks_raw_value::of(nothing), ks_apartment::current_thread_apartment_or(apartment))->then(raw_task_fn, context, apartment);
 		return ks_future<T>::__from_raw(raw_future);
 	}
-	static ks_future<T> __post_pending_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)>&& task_fn, ks_pending_trigger* trigger) {
+	static ks_future<T> __post_pending_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<T>(ks_cancel_inspector*)> task_fn, ks_pending_trigger* trigger) {
 		return ks_future<ks_future<T>>::post_pending(apartment, context, std::move(task_fn), trigger)
 			.template flat_then<T>(apartment, context, [](const ks_future<T>& value_future) -> ks_future<T> { return value_future; });
 	}
 
 private: //__then
 	template <class R>
-	ks_future<R> __then_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const T&)>&& fn) const {
+	ks_future<R> __then_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const T&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -780,7 +780,7 @@ private: //__then
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const T&)>&& fn) const {
+	ks_future<R> __then_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const T&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -793,7 +793,7 @@ private: //__then
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const T&)>&& fn) const {
+	ks_future<R> __then_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const T&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -807,7 +807,7 @@ private: //__then
 
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const T&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __then_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const T&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -820,7 +820,7 @@ private: //__then
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const T&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __then_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const T&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -833,7 +833,7 @@ private: //__then
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const T&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __then_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const T&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -847,7 +847,7 @@ private: //__then
 	}
 
 	template <class R>
-	ks_future<R> __then_of_arglist_1_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const T&)>&& fn) const {
+	ks_future<R> __then_of_arglist_1_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const T&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -860,7 +860,7 @@ private: //__then
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __then_of_arglist_2_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const T&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __then_of_arglist_2_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const T&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -875,7 +875,7 @@ private: //__then
 
 private: //__transform
 	template <class R>
-	ks_future<R> __transform_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const ks_result<T>&)>&& fn) const {
+	ks_future<R> __transform_of_arglist_1_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const ks_result<T>&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -888,7 +888,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const ks_result<T>&)>&& fn) const {
+	ks_future<R> __transform_of_arglist_1_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const ks_result<T>&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -901,7 +901,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const ks_result<T>&)>&& fn) const {
+	ks_future<R> __transform_of_arglist_1_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const ks_result<T>&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -914,7 +914,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const ks_result<T>&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __transform_of_arglist_2_ret_1(ks_apartment* apartment, const ks_async_context& context, std::function<R(const ks_result<T>&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -927,7 +927,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const ks_result<T>&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __transform_of_arglist_2_ret_2(ks_apartment* apartment, const ks_async_context& context, std::function<ks_result<R>(const ks_result<T>&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -940,7 +940,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const ks_result<T>&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __transform_of_arglist_2_ret_3(ks_apartment* apartment, const ks_async_context& context, std::function<ks_future<R>(const ks_result<T>&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -954,7 +954,7 @@ private: //__transform
 	}
 
 	template <class R>
-	ks_future<R> __transform_of_arglist_1_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_result<T>&)>&& fn) const {
+	ks_future<R> __transform_of_arglist_1_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_result<T>&)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)
@@ -967,7 +967,7 @@ private: //__transform
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 	template <class R>
-	ks_future<R> __transform_of_arglist_2_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_result<T>&, ks_cancel_inspector*)>&& fn) const {
+	ks_future<R> __transform_of_arglist_2_ret_x(ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_result<T>&, ks_cancel_inspector*)> fn) const {
 		ASSERT(this->is_valid());
 		ASSERT(apartment != nullptr);
 		if (apartment == nullptr)

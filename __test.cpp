@@ -519,8 +519,8 @@ void test_notification_center() {
         g_exit_latch.count_down();
         });
 
-    ks_notification_center::default_center()->post_notification(&sender, "a.x.y.z", make_async_context(), nothing);
-    ks_notification_center::default_center()->post_notification(&sender, "a.b.c", make_async_context(), nothing);
+    ks_notification_center::default_center()->post_notification(&sender, "a.x.y.z", nothing);
+    ks_notification_center::default_center()->post_notification(&sender, "a.b.c", nothing);
 
     g_exit_latch.wait();
     ks_notification_center::default_center()->remove_observer(&observer, "a.b.c.d");

@@ -45,7 +45,7 @@ public:
 
 	ks_async_context& operator=(const ks_async_context& r) {
 		if (this != &r && m_fat_data_p != r.m_fat_data_p) {
-			do_release_fat_data();
+			__do_release_fat_data(m_fat_data_p);
 			m_fat_data_p = r.m_fat_data_p;
 			m_priority = r.m_priority;
 			if (m_fat_data_p != nullptr)
@@ -55,7 +55,7 @@ public:
 	}
 
 	ks_async_context& operator=(ks_async_context&& r) noexcept {
-		do_release_fat_data();
+		__do_release_fat_data(m_fat_data_p);
 		m_fat_data_p = r.m_fat_data_p;
 		m_priority = r.m_priority;
 		r.m_fat_data_p = nullptr;
@@ -63,7 +63,8 @@ public:
 	}
 
 	~ks_async_context() {
-		do_release_fat_data();
+		__do_release_fat_data(m_fat_data_p);
+		m_fat_data_p = nullptr;
 	}
 
 	static ks_async_context __empty_inst() {
@@ -89,7 +90,7 @@ public:
 	}
 
 	ks_async_context& bind_controller(const ks_async_controller* controller) {
-		if (controller != nullptr || do_check_fat_data_avail(true, false)) {
+		if (controller != nullptr || do_check_fat_data_avail(true, false, false)) {
 			do_prepare_fat_data_cow();
 
 			if (controller != nullptr)
@@ -98,7 +99,23 @@ public:
 				m_fat_data_p->controller_data_ptr.reset();
 		}
 		else {
-			do_release_fat_data();
+			__do_release_fat_data(m_fat_data_p);
+			m_fat_data_p = nullptr;
+		}
+		return *this;
+	}
+
+	ks_async_context& bind_parent(const ks_async_context& parent) {
+		//注：只保存parent.m_fat_data_p，不必保存parent.m_priority（因为无用）
+		if (parent.m_fat_data_p != nullptr || do_check_fat_data_avail(false, false, true)) {
+			do_prepare_fat_data_cow();
+			__do_release_fat_data(m_fat_data_p->parent_fat_data_p);
+			m_fat_data_p->parent_fat_data_p = parent.m_fat_data_p;
+			__do_addref_fat_data(m_fat_data_p->parent_fat_data_p);
+		}
+		else {
+			__do_release_fat_data(m_fat_data_p);
+			m_fat_data_p = nullptr;
 		}
 		return *this;
 	}
@@ -141,7 +158,7 @@ private:
 
 	template <class SMART_PTR>
 	void do_bind_owner(SMART_PTR&& owner_ptr, std::false_type owner_ptr_is_weak) {
-		if (owner_ptr != nullptr || do_check_fat_data_avail(false, true)) {
+		if (owner_ptr != nullptr || do_check_fat_data_avail(false, true, false)) {
 			do_prepare_fat_data_cow();
 			_FAT_DATA* fatData = m_fat_data_p;
 
@@ -155,23 +172,14 @@ private:
 			fatData->owner_pointer_unlock_fn = nullptr;
 		}
 		else {
-			do_release_fat_data();
+			__do_release_fat_data(m_fat_data_p);
+			m_fat_data_p = nullptr;
 		}
 	}
 
-public: //called by ks_raw_future internally
-	bool __check_owner_expired() const {
-		if (m_fat_data_p != nullptr && m_fat_data_p->owner_ptr_is_weak)
-			return m_fat_data_p->owner_pointer_check_expired_fn();
-		else
-			return false;
-	}
-
-	bool __check_cancel_all_ctrl() const {
-		if (m_fat_data_p != nullptr && m_fat_data_p->controller_data_ptr != nullptr)
-			return m_fat_data_p->controller_data_ptr->cancel_all_ctrl_v;
-		else
-			return false;
+public:
+	int  __get_priority() const {
+		return m_priority;
 	}
 
 	ks_source_location __get_from_source_location() const {
@@ -185,26 +193,35 @@ public: //called by ks_raw_future internally
 			return ks_source_location::__empty_inst();
 	}
 
-	int  __get_priority() const {
-		return m_priority;
+public: //called by ks_raw_future internally
+	bool __check_owner_expired() const {
+		//注：递归
+		for (_FAT_DATA* fat_data_p = m_fat_data_p; fat_data_p != nullptr; fat_data_p = fat_data_p->parent_fat_data_p) {
+			if (fat_data_p->owner_ptr_is_weak && fat_data_p->owner_pointer_check_expired_fn())
+				return true;
+		}
+		return false;
+	}
+
+	ks_any __lock_owner_ptr() const {
+		return __do_lock_owner_ptr(m_fat_data_p);
+	}
+
+	void __unlock_owner_ptr(ks_any& locker) const {
+		return __do_unlock_owner_ptr(m_fat_data_p, locker);
 	}
 
 	bool __is_controller_present() const {
 		return (m_fat_data_p != nullptr && m_fat_data_p->controller_data_ptr != nullptr);
 	}
 
-public: //called by ks_raw_future internally
-	ks_any __lock_owner_ptr() const {
-		if (m_fat_data_p != nullptr && m_fat_data_p->owner_ptr_is_weak)
-			return m_fat_data_p->owner_pointer_try_lock_fn();
-		else
-			return ks_any::of(true);
-	}
-	void __unlock_owner_ptr(ks_any& locker) const {
-		if (m_fat_data_p != nullptr && m_fat_data_p->owner_ptr_is_weak)
-			m_fat_data_p->owner_pointer_unlock_fn(locker);
-		else
-			locker.reset();
+	bool __check_cancel_all_ctrl() const {
+		//注：递归
+		for (_FAT_DATA* fat_data_p = m_fat_data_p; fat_data_p != nullptr; fat_data_p = fat_data_p->parent_fat_data_p) {
+			if (m_fat_data_p->controller_data_ptr && m_fat_data_p->controller_data_ptr->cancel_all_ctrl_v)
+				return true;
+		}
+		return false;
 	}
 
 	void __increment_pending_count() const {
@@ -217,18 +234,99 @@ public: //called by ks_raw_future internally
 	}
 
 private:
-	bool do_check_fat_data_avail(bool check_owner, bool check_controller) const {
-		if (m_fat_data_p != nullptr) {
-			if (check_owner && m_fat_data_p->owner_ptr.has_value())
-				return true;
-			if (check_controller && m_fat_data_p->controller_data_ptr != nullptr)
-				return true;
+	struct _FAT_DATA {
+		//关于owner
+		ks_any owner_ptr;
+		//bool owner_ptr_is_weak = false;  //被移动位置，使内存更紧凑
+		std::function<bool()>        owner_pointer_check_expired_fn; //only when weak
+		std::function<ks_any()>      owner_pointer_try_lock_fn;      //only when weak
+		std::function<void(ks_any&)> owner_pointer_unlock_fn;        //only when weak
+
+		//关于controller
+		std::shared_ptr<ks_async_controller::_CONTROLLER_DATA> controller_data_ptr;
+
+		//关于parent
+		_FAT_DATA* parent_fat_data_p = nullptr;
+
+		//关于from_source_location
 #if __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED
-			if (true && !m_fat_data_p->from_source_location.is_empty())
-				return true;
+		ks_source_location from_source_location = ks_source_location::__empty_inst();
 #endif
+
+		//引用计数
+		//std::atomic<int> ref_count = { 1 };  //被移动位置，使内存更紧凑
+
+		//为了使内存布局更紧凑，将部分成员变量集中安置
+		std::atomic<int> ref_count = { 1 };
+		bool owner_ptr_is_weak = false;
+	};
+
+private:
+	static void __do_addref_fat_data(_FAT_DATA* fata_data_p) {
+		if (fata_data_p != nullptr) {
+			++fata_data_p->ref_count;
 		}
-		return false;
+	}
+
+	static void __do_release_fat_data(_FAT_DATA* fata_data_p) {
+		if (fata_data_p != nullptr) {
+			if (--fata_data_p->ref_count == 0) {
+				__do_release_fat_data(fata_data_p->parent_fat_data_p);
+				fata_data_p->parent_fat_data_p = nullptr;
+				delete fata_data_p;
+			}
+		}
+	}
+
+	static ks_any __do_lock_owner_ptr(_FAT_DATA* fat_data_p) {
+		if (fat_data_p == nullptr) {
+			return ks_any::of(true);
+		}
+		else if (fat_data_p->parent_fat_data_p == nullptr) {
+			return fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of(true);
+		}
+		else {
+			ks_any self_locker = fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of(true);
+			if (self_locker.has_value()) {
+				ks_any parent_locker = __do_lock_owner_ptr(fat_data_p->parent_fat_data_p);
+				if (parent_locker.has_value())
+					return ks_any::of(std::make_pair(self_locker, parent_locker));
+
+				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, parent_locker);
+			}
+
+			if (fat_data_p->owner_ptr_is_weak)
+				fat_data_p->owner_pointer_unlock_fn(self_locker);
+			else
+				self_locker.reset();
+			return ks_any();
+		}
+	}
+
+	static void __do_unlock_owner_ptr(_FAT_DATA* fat_data_p, ks_any& locker) {
+		if (fat_data_p == nullptr) {
+			locker.reset();
+			return;
+		}
+		else if (fat_data_p->parent_fat_data_p == nullptr) {
+			if (fat_data_p->owner_ptr_is_weak)
+				fat_data_p->owner_pointer_unlock_fn(locker);
+			else
+				locker.reset();
+			return;
+		}
+		else {
+			if (locker.has_value()) {
+				auto sub_locker_pair = locker.get<std::pair<ks_any, ks_any>>();
+				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, sub_locker_pair.second);
+				if (fat_data_p->owner_ptr_is_weak)
+					fat_data_p->owner_pointer_unlock_fn(sub_locker_pair.first);
+				else
+					sub_locker_pair.first.reset();
+				locker.reset();
+				return;
+			}
+		}
 	}
 
 	void do_prepare_fat_data_cow() {
@@ -244,56 +342,40 @@ private:
 			fatDataCopy->owner_pointer_try_lock_fn = fatDataOrig->owner_pointer_try_lock_fn;
 			fatDataCopy->owner_pointer_unlock_fn = fatDataOrig->owner_pointer_unlock_fn;
 			fatDataCopy->controller_data_ptr = fatDataOrig->controller_data_ptr;
-			do_release_fat_data();
+			fatDataCopy->parent_fat_data_p = fatDataOrig->parent_fat_data_p;
+			__do_addref_fat_data(fatDataCopy->parent_fat_data_p);
+
+			__do_release_fat_data(m_fat_data_p);
 			m_fat_data_p = fatDataCopy;
 		}
 	}
 
-	void do_release_fat_data() {
+	bool do_check_fat_data_avail(bool check_owner, bool check_controller, bool check_parent) const {
 		if (m_fat_data_p != nullptr) {
-			if (--m_fat_data_p->ref_count == 0)
-				delete m_fat_data_p;
-			m_fat_data_p = nullptr;
+			if (check_owner && m_fat_data_p->owner_ptr.has_value())
+				return true;
+			if (check_controller && m_fat_data_p->controller_data_ptr != nullptr)
+				return true;
+			if (check_parent && m_fat_data_p->parent_fat_data_p != nullptr)
+				return true;
+#if __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED
+			if (true && !m_fat_data_p->from_source_location.is_empty())
+				return true;
+#endif
 		}
+		return false;
 	}
 
 private:
-	struct _FAT_DATA {
-		//关于owner
-		ks_any owner_ptr;
-		//bool owner_ptr_is_weak = false;  //被移动位置，使内存更紧凑
-		std::function<bool()>        owner_pointer_check_expired_fn; //only when weak
-		std::function<ks_any()>      owner_pointer_try_lock_fn;      //only when weak
-		std::function<void(ks_any&)> owner_pointer_unlock_fn;        //only when weak
-
-		//关于controller
-		std::shared_ptr<ks_async_controller::_CONTROLLER_DATA> controller_data_ptr;
-
-		//关于from_source_location
-#if __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED
-		ks_source_location from_source_location = ks_source_location::__empty_inst();
-#endif
-
-		//引用计数
-		//std::atomic<int> ref_count = { 1 };  //被移动位置，使内存更紧凑
-
-		//为了使内存布局更紧凑，将部分成员变量集中安置
-		std::atomic<int> ref_count = { 1 };
-		bool owner_ptr_is_weak = false;
-	};
-
 	_FAT_DATA* m_fat_data_p = nullptr; //_FAT_DATA结构体有点大，采用COW技术优化
-
 	int m_priority = 0;
 
 	friend ks_async_context __make_async_context_from(const ks_source_location& from_source_location);
 };
 
 
-inline 
-ks_async_context __make_async_context_from(const ks_source_location& from_source_location) {
+inline ks_async_context __make_async_context_from(const ks_source_location& from_source_location) {
 	return ks_async_context(from_source_location);
 }
 
-#define make_async_context()  \
-	(__make_async_context_from(current_source_location()))
+#define make_async_context()  (__make_async_context_from(current_source_location()))

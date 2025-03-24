@@ -32,13 +32,12 @@ public:
 	~ks_deferrer() { this->apply(); }
 
 public:
-	ks_deferrer& add(std::function<void()>&& fn) {
-		if (fn) {
-			if (!m_pri_fn)
-				m_pri_fn = std::move(fn);
-			else
-				m_more_fns.push_back(std::move(fn));
-		}
+	template <class FN, class _ = std::enable_if_t<std::is_convertible_v<FN, std::function<void()>>>>
+	ks_deferrer& add(FN&& fn) {
+		if (!m_pri_fn)
+			m_pri_fn = std::forward<FN>(fn);
+		else
+			m_more_fns.push_back(std::forward<FN>(fn));
 
 		return *this;
 	}
