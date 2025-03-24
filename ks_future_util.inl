@@ -215,13 +215,15 @@ private:
 	}
 
 public: //parallel, parallel_n
-	template <class FN, class _ = std::enable_if_t <
-		std::is_convertible_v<FN, std::function<void()>> ||
-		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
-		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
+	template <class FNS, class _ = std::enable_if_t <
+		std::is_convertible_v<typename FNS::value_type, std::function<void()>> ||
+		std::is_convertible_v<typename FNS::value_type, std::function<ks_result<void>()>> ||
+		std::is_convertible_v<typename FNS::value_type, std::function<ks_future<void>()>>>>
 	static ks_future<void> parallel(
-			ks_apartment* apartment, const std::vector<FN>& fns, 
+			ks_apartment* apartment, const FNS& fns, 
 			const ks_async_context& context = {}) {
+
+		using FN = typename FNS::value_type;
 
 		if (fns.empty()) {
 			return ks_future<void>::resolved(nothing);
@@ -275,13 +277,15 @@ public: //parallel, parallel_n
 	}
 
 public: //sequential, sequential_n
-	template <class FN, class _ = std::enable_if_t <
-		std::is_convertible_v<FN, std::function<void()>> ||
-		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
-		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
+	template <class FNS, class _ = std::enable_if_t <
+		std::is_convertible_v<typename FNS::value_type, std::function<void()>> ||
+		std::is_convertible_v<typename FNS::value_type, std::function<ks_result<void>()>> ||
+		std::is_convertible_v<typename FNS::value_type, std::function<ks_future<void>()>>>>
 	static ks_future<void> sequential(
-		ks_apartment* apartment, const std::vector<FN>& fns,
+		ks_apartment* apartment, const FNS& fns,
 		const ks_async_context& context = {}) {
+
+		using FN = typename FNS::value_type;
 
 		if (fns.empty()) {
 			return ks_future<void>::resolved(nothing);
