@@ -278,14 +278,15 @@ private:
 		}
 	}
 
+	static bool __do_check_need_lock_owner_ptr(_FAT_DATA* fat_data_p) {
+		return fat_data_p != nullptr && (fat_data_p->owner_ptr_is_weak || __do_check_need_lock_owner_ptr(fat_data_p->parent_fat_data_p));
+	}
+
 	static ks_any __do_lock_owner_ptr(_FAT_DATA* fat_data_p) {
-		if (fat_data_p == nullptr) {
-			return ks_any::of(true);
-		}
-		else if (fat_data_p->parent_fat_data_p == nullptr) {
-			return fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of(true);
-		}
-		else {
+		const bool owner_need_lock = fat_data_p != nullptr && fat_data_p->owner_ptr_is_weak;
+		const bool parent_need_lock = fat_data_p != nullptr && fat_data_p->parent_fat_data_p != nullptr && __do_check_need_lock_owner_ptr(fat_data_p->parent_fat_data_p);
+
+		if (owner_need_lock && parent_need_lock) {
 			ks_any self_locker = fat_data_p->owner_ptr_is_weak ? fat_data_p->owner_pointer_try_lock_fn() : ks_any::of(true);
 			if (self_locker.has_value()) {
 				ks_any parent_locker = __do_lock_owner_ptr(fat_data_p->parent_fat_data_p);
@@ -295,37 +296,38 @@ private:
 				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, parent_locker);
 			}
 
-			if (fat_data_p->owner_ptr_is_weak)
-				fat_data_p->owner_pointer_unlock_fn(self_locker);
-			else
-				self_locker.reset();
+			fat_data_p->owner_pointer_unlock_fn(self_locker);
 			return ks_any();
+		}
+		else if (owner_need_lock) {
+			return fat_data_p->owner_pointer_try_lock_fn();
+		}
+		else if (parent_need_lock) {
+			return __do_lock_owner_ptr(fat_data_p->parent_fat_data_p);
+		}
+		else {
+			return ks_any::of(true);
 		}
 	}
 
 	static void __do_unlock_owner_ptr(_FAT_DATA* fat_data_p, ks_any& locker) {
-		if (fat_data_p == nullptr) {
-			locker.reset();
-			return;
-		}
-		else if (fat_data_p->parent_fat_data_p == nullptr) {
-			if (fat_data_p->owner_ptr_is_weak)
-				fat_data_p->owner_pointer_unlock_fn(locker);
-			else
-				locker.reset();
-			return;
-		}
-		else {
-			if (locker.has_value()) {
-				auto sub_locker_pair = locker.get<std::pair<ks_any, ks_any>>();
-				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, sub_locker_pair.second);
-				if (fat_data_p->owner_ptr_is_weak)
-					fat_data_p->owner_pointer_unlock_fn(sub_locker_pair.first);
-				else
-					sub_locker_pair.first.reset();
-				locker.reset();
-				return;
+		if (locker.has_value()) {
+			const bool owner_need_lock = fat_data_p != nullptr && fat_data_p->owner_ptr_is_weak;
+			const bool parent_need_lock = fat_data_p != nullptr && fat_data_p->parent_fat_data_p != nullptr && __do_check_need_lock_owner_ptr(fat_data_p->parent_fat_data_p);
+
+			if (owner_need_lock && parent_need_lock) {
+				auto sub_pair = locker.get<std::pair<ks_any, ks_any>>();
+				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, sub_pair.second);
+				fat_data_p->owner_pointer_unlock_fn(sub_pair.first);
 			}
+			else if (owner_need_lock) {
+				fat_data_p->owner_pointer_unlock_fn(locker);
+			}
+			else if (parent_need_lock) {
+				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, locker);
+			}
+
+			locker.reset();
 		}
 	}
 
