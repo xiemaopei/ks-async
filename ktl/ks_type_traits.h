@@ -222,13 +222,13 @@ namespace std { //helper funcs
 	constexpr inline const std::remove_cvref_t<T>& take(const T& arg) {
 		return static_cast<const std::remove_cvref_t<T>&>(arg);
 	}
-	template <class T>
+	template <class T, class _ = std::enable_if_t<std::is_mutable_rvalue_reference_v<T&&>>>
 	constexpr inline std::remove_cvref_t<T>&& take(T&& arg) {
 		return std::forward<T>(arg);
 	}
 
 	template <class T>
-	constexpr inline void prune_if_rvalue(T&& arg) {
+	constexpr inline void try_prune_if_rvalue(T&& arg) {
 		if (std::is_mutable_rvalue_reference_v<T&&>)
 			(void)(std::remove_cvref_t<T>(std::move(arg)));
 	}

@@ -250,7 +250,7 @@ public: //parallel, parallel_n
 		const ks_async_context& context = {}) {
 
 		if (n == 0) {
-			std::prune_if_rvalue(std::forward<FN>(fn));
+			std::try_prune_if_rvalue(std::forward<FN>(fn));
 			return ks_future<void>::resolved(nothing);
 		}
 		else if (n == 1) {
@@ -267,7 +267,7 @@ public: //parallel, parallel_n
 				);
 			}
 
-			std::prune_if_rvalue(std::forward<FN>(fn));
+			std::try_prune_if_rvalue(std::forward<FN>(fn));
 			return ks_future_util::all(future_vec);
 		}
 	}
@@ -334,7 +334,7 @@ public: //sequential, sequential_n
 		const ks_async_context& context = {}) {
 
 		if (n == 0) {
-			std::prune_if_rvalue(std::forward<FN>(fn));
+			std::try_prune_if_rvalue(std::forward<FN>(fn));
 			return ks_future<void>::resolved(nothing);
 		}
 		else if (n == 1) {
