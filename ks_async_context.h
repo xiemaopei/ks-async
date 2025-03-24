@@ -142,17 +142,18 @@ private:
 		};
 
 		fatData->owner_pointer_try_lock_fn = [owner_ptr]() {
-			auto typed_locker = std::weak_pointer_traits<SMART_PTR>::try_lock_weak_pointer(owner_ptr);
+			using typed_locker_t = typename std::weak_pointer_traits<SMART_PTR>::locker_type;
+			typed_locker_t typed_locker = std::weak_pointer_traits<SMART_PTR>::try_lock_weak_pointer(owner_ptr);
 			if (typed_locker)
-				return ks_any::of<decltype(typed_locker)>(std::move(typed_locker));
+				return ks_any::of<typed_locker_t>(std::move(typed_locker));
 			std::weak_pointer_traits<SMART_PTR>::unlock_weak_pointer(owner_ptr, typed_locker);
 			return ks_any();
 		};
 
 		fatData->owner_pointer_unlock_fn = [owner_ptr](ks_any& locker) {
 			if (locker.has_value()) {
-				using typed_locker_t = std::invoke_result_t<decltype(std::weak_pointer_traits<SMART_PTR>::try_lock_weak_pointer), const SMART_PTR&>;
-				typed_locker_t& typed_locker = const_cast<typed_locker_t&>(locker.get<typed_locker_t>());
+				using typed_locker_t = typename std::weak_pointer_traits<SMART_PTR>::locker_type;
+				typed_locker_t typed_locker = locker.get<typed_locker_t>();
 				std::weak_pointer_traits<SMART_PTR>::unlock_weak_pointer(owner_ptr, typed_locker);
 				locker.reset();
 			}
