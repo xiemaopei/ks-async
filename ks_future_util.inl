@@ -19,7 +19,7 @@ template <class T> class ks_future;
 template <class T> class ks_promise;
 
 
-_AS_NAMESPACE class ks_future_util { //as namespace
+_NAMESPACE_LIKE class ks_future_util { //as namespace
 private:
 	using ks_raw_future = __ks_async_raw::ks_raw_future;
 	using ks_raw_future_ptr = __ks_async_raw::ks_raw_future_ptr;

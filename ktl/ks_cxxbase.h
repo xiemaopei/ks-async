@@ -39,9 +39,9 @@ constexpr nothing_t nothing = {};  //nothing相当于其他现代语言中的uni
 #	define _ABSTRACT
 #endif
 
-//宏_AS_NAMESPACE定义
-#ifndef _AS_NAMESPACE
-#	define _AS_NAMESPACE
+//宏_NAMESPACE_LIKE定义
+#ifndef _NAMESPACE_LIKE
+#	define _NAMESPACE_LIKE
 #endif
 
 //宏_DISABLE_COPY_CONSTRUCTOR定义
