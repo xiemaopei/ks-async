@@ -172,7 +172,7 @@ protected:
 			lock.unlock();
 			bool was_satisfied = cur_apartment->__do_run_nested_pump_loop_for_extern_waiting(
 				this,
-				[this, this_shared = this->shared_from_this()](void*) -> bool { return m_completed_result.is_completed(); }
+				[this, this_shared = this->shared_from_this()]() -> bool { return m_completed_result.is_completed(); }
 			);
 
 			lock.lock();

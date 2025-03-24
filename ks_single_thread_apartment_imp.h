@@ -57,8 +57,8 @@ public:
 	virtual void atfork_child() override;
 #endif
 
-	virtual bool __do_run_nested_pump_loop_for_extern_waiting(void* obj, std::function<bool(void* obj)>&& extern_pred_fn) override;
-	virtual void __do_notify_nested_pump_loop_for_extern_waiting(void* obj) override;
+	virtual bool __do_run_nested_pump_loop_for_extern_waiting(void*, std::function<bool()>&& extern_pred_fn) override;
+	virtual void __do_notify_nested_pump_loop_for_extern_waiting(void*) override;
 
 private:
 	struct _SINGLE_THREAD_APARTMENT_DATA;

@@ -531,14 +531,14 @@ void ks_thread_pool_apartment_imp::atfork_child() {
 #endif
 
 
-bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(void* obj, std::function<bool(void* obj)>&& extern_pred_fn) {
+bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(void*, std::function<bool()>&& extern_pred_fn) {
 	auto d = m_d;
 	bool was_satisified = false;
 
 	ASSERT(ks_apartment::current_thread_apartment() == this);
 
 	while (true) {
-		if (extern_pred_fn(obj)) {
+		if (extern_pred_fn()) {
 			was_satisified = true;
 			break; //waiting was satisfied, ok
 		}
@@ -601,6 +601,6 @@ bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(
 	return was_satisified;
 }
 
-void ks_thread_pool_apartment_imp::__do_notify_nested_pump_loop_for_extern_waiting(void* obj) {
+void ks_thread_pool_apartment_imp::__do_notify_nested_pump_loop_for_extern_waiting(void*) {
 	m_d->now_fn_queue_cv.notify_all();
 }
