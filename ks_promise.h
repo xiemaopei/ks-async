@@ -72,12 +72,8 @@ public:
 	}
 
 	void try_settle(const ks_result<T>& result) const {
-		if (result.is_value())
-			this->resolve(result.to_value());
-		else if (result.is_error())
-			this->reject(result.to_error());
-		else
-			ASSERT(false);
+		ASSERT(this->is_valid());
+		m_raw_promise->try_settle(result.__get_raw());
 	}
 
 private:

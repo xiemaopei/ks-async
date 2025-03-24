@@ -57,16 +57,10 @@ public:
 	}
 
 	void try_settle(const ks_result<void>& result) const {
-		if (result.is_value())
-			this->resolve();
-		else if (result.is_error())
-			this->reject(result.to_error());
-		else
-			ASSERT(false);
+		m_nothing_promise.try_settle(result.cast<nothing_t>());
 	}
-
 	void try_settle(const ks_result<nothing_t>& result) const {
-		return this->try_settle(ks_result<void>::__from_other(result));
+		m_nothing_promise.try_settle(result);
 	}
 
 private:
