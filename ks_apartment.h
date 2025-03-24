@@ -92,14 +92,10 @@ protected:
 	//以下方法仅被各ks_apartment的派生类内部调用。
 	KS_ASYNC_API static void __set_ui_sta(ks_apartment* ui_sta);
 	KS_ASYNC_API static void __set_master_sta(ks_apartment* master_sta);
-	KS_ASYNC_API static void __tls_set_current_thread_apartment(ks_apartment* current_thread_apartment);
 
-	KS_ASYNC_API static void __unset_ui_sta(ks_apartment* ui_sta);
-	KS_ASYNC_API static void __unset_master_sta(ks_apartment* master_sta);
-	KS_ASYNC_API static void __tls_unset_current_thread_apartment(ks_apartment* current_thread_apartment);
+	KS_ASYNC_API static void __set_current_thread_apartment(ks_apartment* current_thread_apartment);
+	KS_ASYNC_API static void __set_current_thread_name(const char* thread_name);
 
 	KS_ASYNC_API static void __register_public_apartment(const char* name, ks_apartment* apartment);
 	KS_ASYNC_API static void __unregister_public_apartment(const char* name, ks_apartment* apartment);
-
-	KS_ASYNC_API static void __native_set_current_thread_name(const char* thread_name);
 };

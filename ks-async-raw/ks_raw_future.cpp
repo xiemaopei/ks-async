@@ -21,28 +21,25 @@ limitations under the License.
 #include <algorithm>
 #include <set>
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-#	if defined(_WIN32)
-#		include <Windows.h>
-#		include <processthreadsapi.h>
-		using __native_pid_t = DWORD;
-		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
-#	elif defined(__APPLE__)
-#		include <sys/proc.h>
-		using __native_pid_t = int;
-		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
-#	else
-#		include <unistd.h>
-		using __native_pid_t = pid_t;
-		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
-#	endif
-#else
-		using __native_pid_t = int;
-		static inline __native_pid_t __native_get_current_pid() { return -1; }
-#endif
-
-
 void __forcelink_to_ks_raw_future_cpp() {}
+
+#if (!__KS_APARTMENT_ATFORK_ENABLED)
+	using __native_pid_t = int;
+	static inline __native_pid_t __native_get_current_pid() { return -1; }  //pseudo
+#elif defined(_WIN32)
+	#include <Windows.h>
+	#include <processthreadsapi.h>
+	using __native_pid_t = DWORD;
+	static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
+#elif defined(__APPLE__)
+	#include <sys/proc.h>
+	using __native_pid_t = int;
+	static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
+#else
+	#include <unistd.h>
+	using __native_pid_t = pid_t;
+	static inline __native_pid_t __native_get_current_pid() { return getpid(); }
+#endif
 
 
 __KS_ASYNC_RAW_BEGIN

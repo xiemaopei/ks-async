@@ -258,13 +258,14 @@ void ks_thread_pool_apartment_imp::_prepare_now_thread_pool_locked(ks_thread_poo
 
 void ks_thread_pool_apartment_imp::_now_thread_proc(ks_thread_pool_apartment_imp* self, const std::shared_ptr<_THREAD_POOL_APARTMENT_DATA>& d, uint64_t thread_sn) {
 	ASSERT(ks_apartment::current_thread_apartment() == nullptr);
-	ks_apartment::__tls_set_current_thread_apartment(self);
+	ASSERT(tls_current_now_thread_sn == 0);
+	ks_apartment::__set_current_thread_apartment(self);
 	tls_current_now_thread_sn = thread_sn;
 
 	if (true) {
 		std::stringstream thread_name_ss;
-		thread_name_ss << d->name << "(mta)'s thread [worker: " << thread_sn << "/" << d->max_thread_count << "]";
-		ks_apartment::__native_set_current_thread_name(thread_name_ss.str().c_str());
+		thread_name_ss << d->name << "'s work-thread [" << thread_sn << "/" << d->max_thread_count << "]";
+		ks_apartment::__set_current_thread_name(thread_name_ss.str().c_str());
 	}
 
 	while (true) {
@@ -363,8 +364,8 @@ void ks_thread_pool_apartment_imp::_prepare_delaying_trigger_thread_locked(ks_th
 void ks_thread_pool_apartment_imp::_delaying_trigger_thread_proc(ks_thread_pool_apartment_imp* self, const std::shared_ptr<_THREAD_POOL_APARTMENT_DATA>& d) {
 	if (true) {
 		std::stringstream thread_name_ss;
-		thread_name_ss << d->name << "(mta)'s thread [timer]";
-		ks_apartment::__native_set_current_thread_name(thread_name_ss.str().c_str());
+		thread_name_ss << d->name << "'s time-thread";
+		ks_apartment::__set_current_thread_name(thread_name_ss.str().c_str());
 	}
 
 	while (true) {

@@ -28,7 +28,7 @@ ks_single_thread_apartment_imp::ks_single_thread_apartment_imp(const char* name,
 	m_d->name = name;
 	m_d->flags = flags;
 
-	if ((m_d->flags & auto_register_flag) && !m_d->name.empty()) {
+	if (m_d->flags & auto_register_flag) {
 		ks_apartment::__register_public_apartment(m_d->name.c_str(), this);
 	}
 	if (m_d->flags & be_ui_sta_flag) {
@@ -51,16 +51,16 @@ ks_single_thread_apartment_imp::~ks_single_thread_apartment_imp() {
 	}
 
 	if ((m_d->flags & endless_instance_flag) == 0) {
-		if ((m_d->flags & auto_register_flag) && !m_d->name.empty()) {
+		if (m_d->flags & auto_register_flag) {
 			ks_apartment::__unregister_public_apartment(m_d->name.c_str(), this);
 		}
 		if (m_d->flags & be_ui_sta_flag) {
-			ks_apartment::__unset_ui_sta(this);
+			ks_apartment::__set_ui_sta(nullptr);
 			if ((m_d->flags & auto_register_flag) && m_d->name != "ui_sta")
 				ks_apartment::__unregister_public_apartment("ui_sta", this);
 		}
 		if (m_d->flags & be_master_sta_flag) {
-			ks_apartment::__unset_master_sta(this);
+			ks_apartment::__set_master_sta(nullptr);
 			if ((m_d->flags & auto_register_flag) && m_d->name != "master_sta")
 				ks_apartment::__unregister_public_apartment("master_sta", this);
 		}
@@ -259,12 +259,12 @@ void ks_single_thread_apartment_imp::_prepare_single_thread_locked(ks_single_thr
 
 void ks_single_thread_apartment_imp::_single_thread_proc(ks_single_thread_apartment_imp* self, const std::shared_ptr<_SINGLE_THREAD_APARTMENT_DATA>& d) {
 	ASSERT(ks_apartment::current_thread_apartment() == nullptr);
-	ks_apartment::__tls_set_current_thread_apartment(self);
+	ks_apartment::__set_current_thread_apartment(self);
 
 	if (true) {
 		std::stringstream thread_name_ss;
-		thread_name_ss << d->name << "(sta)'s thread";
-		ks_apartment::__native_set_current_thread_name(thread_name_ss.str().c_str());
+		thread_name_ss << d->name << "'s solo-thread";
+		ks_apartment::__set_current_thread_name(thread_name_ss.str().c_str());
 	}
 
 	while (true) {
