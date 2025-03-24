@@ -180,7 +180,7 @@ protected:
 
 			if (!m_completed_result.is_completed()) {
 				ASSERT(!was_satisfied);
-				this->do_complete_locked<false>(ks_error::interupted_error(), cur_apartment, false, lock);
+				this->do_complete_locked<false>(ks_error::interrupted_error(), cur_apartment, false, lock);
 				return false;
 			}
 
