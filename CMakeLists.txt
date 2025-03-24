@@ -46,6 +46,7 @@ set(MY_SOURCE_FILES
 	ks_async_flow.h
 
 	#about notificiation-center
+	ks_notification.h
 	ks_notification_center.h
 	ks_notification_center.cpp
 
@@ -107,6 +108,7 @@ set(PUBLIC_HEADER_FILES
 	ks_async_flow.h
 
 	#about notificiation-center
+	ks_notification.h
 	ks_notification_center.h
 
 	#others

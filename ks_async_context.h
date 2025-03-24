@@ -28,6 +28,8 @@ class ks_async_context final {
 public:
 	//注意：这个默认构造即将被废弃！
 	ks_async_context() {
+		m_fat_data_p = nullptr;
+		m_priority = 0;
 	}
 
 	ks_async_context(const ks_async_context& r) {
@@ -68,11 +70,12 @@ public:
 	}
 
 	static ks_async_context __empty_inst() {
-		return ks_async_context(ks_source_location::__empty_inst());
+		return ks_async_context(__raw_ctor::v, ks_source_location::__empty_inst());
 	}
 
 private:
-	explicit ks_async_context(const ks_source_location& from_source_location) {
+	enum class __raw_ctor { v };
+	explicit ks_async_context(__raw_ctor, const ks_source_location& from_source_location) : ks_async_context() {
 		if (!from_source_location.is_empty()) {
 			do_prepare_fat_data_cow();
 #if __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED
@@ -80,6 +83,8 @@ private:
 #endif
 		}
 	}
+
+	friend ks_async_context __inner_make_async_context_from(const ks_source_location& from_source_location);
 
 public:
 	template <class SMART_PTR, class _ = std::enable_if_t<std::is_null_pointer_v<SMART_PTR> || std::is_shared_pointer_v<SMART_PTR> || std::is_weak_pointer_v<SMART_PTR>>>
@@ -90,32 +95,30 @@ public:
 	}
 
 	ks_async_context& bind_controller(const ks_async_controller* controller) {
-		if (controller != nullptr || do_check_fat_data_avail(true, false, false)) {
+		if (controller != nullptr) {
 			do_prepare_fat_data_cow();
-
-			if (controller != nullptr)
-				m_fat_data_p->controller_data_ptr = controller->m_controller_data_ptr;
-			else
-				m_fat_data_p->controller_data_ptr.reset();
+			m_fat_data_p->controller_data_ptr = controller->m_controller_data_ptr;
 		}
 		else {
-			__do_release_fat_data(m_fat_data_p);
-			m_fat_data_p = nullptr;
+			if (m_fat_data_p != nullptr)
+				m_fat_data_p->controller_data_ptr.reset();
 		}
 		return *this;
 	}
 
-	ks_async_context& bind_parent(const ks_async_context& parent) {
+	ks_async_context& set_parent(const ks_async_context& parent) {
 		//注：只保存parent.m_fat_data_p，不必保存parent.m_priority（因为无用）
-		if (parent.m_fat_data_p != nullptr || do_check_fat_data_avail(false, false, true)) {
+		if (parent.m_fat_data_p != nullptr) {
 			do_prepare_fat_data_cow();
 			__do_release_fat_data(m_fat_data_p->parent_fat_data_p);
 			m_fat_data_p->parent_fat_data_p = parent.m_fat_data_p;
 			__do_addref_fat_data(m_fat_data_p->parent_fat_data_p);
 		}
 		else {
-			__do_release_fat_data(m_fat_data_p);
-			m_fat_data_p = nullptr;
+			if (m_fat_data_p != nullptr) {
+				__do_release_fat_data(m_fat_data_p->parent_fat_data_p);
+				m_fat_data_p->parent_fat_data_p = nullptr;
+			}
 		}
 		return *this;
 	}
@@ -129,9 +132,9 @@ private:
 	template <class SMART_PTR>
 	void do_bind_owner(SMART_PTR&& owner_ptr, std::true_type owner_ptr_is_weak) {
 		do_prepare_fat_data_cow();
-		_FAT_DATA* fatData = m_fat_data_p;
 
-		fatData->owner_ptr = ks_any::of(owner_ptr);
+		_FAT_DATA* fatData = m_fat_data_p;
+		fatData->owner_ptr = ks_any::of(std::forward<SMART_PTR>(owner_ptr));
 		fatData->owner_ptr_is_weak = true;
 
 		fatData->owner_pointer_check_expired_fn = [owner_ptr]() {
@@ -158,23 +161,11 @@ private:
 
 	template <class SMART_PTR>
 	void do_bind_owner(SMART_PTR&& owner_ptr, std::false_type owner_ptr_is_weak) {
-		if (owner_ptr != nullptr || do_check_fat_data_avail(false, true, false)) {
-			do_prepare_fat_data_cow();
-			_FAT_DATA* fatData = m_fat_data_p;
+		do_prepare_fat_data_cow();
 
-			if (owner_ptr != nullptr)
-				fatData->owner_ptr = ks_any::of(std::forward<SMART_PTR>(owner_ptr));
-			else
-				fatData->owner_ptr.reset();
-			fatData->owner_ptr_is_weak = false;
-			fatData->owner_pointer_check_expired_fn = nullptr;
-			fatData->owner_pointer_try_lock_fn = nullptr;
-			fatData->owner_pointer_unlock_fn = nullptr;
-		}
-		else {
-			__do_release_fat_data(m_fat_data_p);
-			m_fat_data_p = nullptr;
-		}
+		_FAT_DATA* fatData = m_fat_data_p;
+		fatData->owner_ptr = ks_any::of(std::forward<SMART_PTR>(owner_ptr));
+		fatData->owner_ptr_is_weak = false;
 	}
 
 public:
@@ -352,32 +343,14 @@ private:
 		}
 	}
 
-	bool do_check_fat_data_avail(bool check_owner, bool check_controller, bool check_parent) const {
-		if (m_fat_data_p != nullptr) {
-			if (check_owner && m_fat_data_p->owner_ptr.has_value())
-				return true;
-			if (check_controller && m_fat_data_p->controller_data_ptr != nullptr)
-				return true;
-			if (check_parent && m_fat_data_p->parent_fat_data_p != nullptr)
-				return true;
-#if __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED
-			if (true && !m_fat_data_p->from_source_location.is_empty())
-				return true;
-#endif
-		}
-		return false;
-	}
-
 private:
-	_FAT_DATA* m_fat_data_p = nullptr; //_FAT_DATA结构体有点大，采用COW技术优化
-	int m_priority = 0;
-
-	friend ks_async_context __make_async_context_from(const ks_source_location& from_source_location);
+	_FAT_DATA* m_fat_data_p; //_FAT_DATA结构体有点大，采用COW技术优化
+	int m_priority;
 };
 
 
-inline ks_async_context __make_async_context_from(const ks_source_location& from_source_location) {
-	return ks_async_context(from_source_location);
+inline ks_async_context __inner_make_async_context_from(const ks_source_location& from_source_location) {
+	return ks_async_context(ks_async_context::__raw_ctor::v, from_source_location);
 }
 
-#define make_async_context()  (__make_async_context_from(current_source_location()))
+#define make_async_context()  (__inner_make_async_context_from(current_source_location()))

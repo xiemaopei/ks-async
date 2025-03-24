@@ -510,17 +510,18 @@ void test_notification_center() {
     std::cout << "test notification-center ... ";
 
     struct {} sender, observer;
-    ks_notification_center::default_center()->add_observer(&observer, "a.b.c.d", ks_apartment::default_mta(), make_async_context(), [](const ks_notification& notification) {
+    ks_notification_center::default_center()->add_observer(&observer, "a.b.c.d", ks_apartment::default_mta(), [](const ks_notification& notification) {
         ASSERT(false);
         std::cout << "a.b.c.d notification: name=" << notification.get_notification_name() << "; ";
         });
-    ks_notification_center::default_center()->add_observer(&observer, "a.b.*", ks_apartment::default_mta(), make_async_context(), [](const ks_notification& notification) {
+    ks_notification_center::default_center()->add_observer(&observer, "a.b.*", ks_apartment::default_mta(), [](const ks_notification& notification) {
         std::cout << "a.b.* notification: name=" << notification.get_notification_name() << "; ";
         g_exit_latch.count_down();
         });
 
-    ks_notification_center::default_center()->post_notification(&sender, "a.x.y.z", nothing);
-    ks_notification_center::default_center()->post_notification(&sender, "a.b.c", nothing);
+    ks_notification_center::default_center()->post_simple_notification(&sender, "a.x.y.z");
+    ks_notification_center::default_center()->post_notification<int>(&sender, "a.x.y.z", 1);
+    ks_notification_center::default_center()->post_notification<std::string>(&sender, "a.b.c", "xxx");
 
     g_exit_latch.wait();
     ks_notification_center::default_center()->remove_observer(&observer, "a.b.c.d");
