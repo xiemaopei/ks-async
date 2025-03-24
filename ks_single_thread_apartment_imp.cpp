@@ -441,13 +441,6 @@ void ks_single_thread_apartment_imp::atfork_child() {
 	if (atfork_calling_in_my_thread_flag)
 		return; //该sta线程内调用fork，不必做什么
 
-	//重建cv（析构有几率卡死，故直接重构造）
-	//子进程中此时此刻，当前线程正执行至此，而其他线程都消失了，就算正在wait也不用处理后事了
-	::new (&m_d->any_fn_queue_cv) ks_condition_variable();
-	::new (&m_d->working_done_cv) ks_condition_variable();
-	::new (&m_d->atforking_done_cv) ks_condition_variable();
-	::new (&m_d->stopped_state_cv) ks_condition_variable();
-
 	//重建线程
 	if (m_d->isolated_thread_opt != nullptr) {
 		std::thread([self = this, d = m_d]() {
