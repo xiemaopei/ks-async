@@ -223,7 +223,7 @@ public: //parallel, parallel_n
 			ks_apartment* apartment, const FNS& fns, 
 			const ks_async_context& context = {}) {
 
-		using FN = typename FNS::value_type;
+		//using FN = typename FNS::value_type;
 
 		if (fns.empty()) {
 			return ks_future<void>::resolved(nothing);
