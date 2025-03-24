@@ -71,7 +71,7 @@ public:
 		m_raw_promise->reject(error);
 	}
 
-	void try_complete(const ks_result<T>& result) const {
+	void try_settle(const ks_result<T>& result) const {
 		if (result.is_value())
 			this->resolve(result.to_value());
 		else if (result.is_error())

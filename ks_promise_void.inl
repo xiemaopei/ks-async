@@ -56,7 +56,7 @@ public:
 		m_nothing_promise.reject(error);
 	}
 
-	void try_complete(const ks_result<void>& result) const {
+	void try_settle(const ks_result<void>& result) const {
 		if (result.is_value())
 			this->resolve();
 		else if (result.is_error())
@@ -65,8 +65,8 @@ public:
 			ASSERT(false);
 	}
 
-	void try_complete(const ks_result<nothing_t>& result) const {
-		return this->try_complete(ks_result<void>::__from_other(result));
+	void try_settle(const ks_result<nothing_t>& result) const {
+		return this->try_settle(ks_result<void>::__from_other(result));
 	}
 
 private:

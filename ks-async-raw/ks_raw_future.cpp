@@ -501,7 +501,7 @@ public: //override ks_raw_promise's methods
 		this->do_complete(error, nullptr, false);
 	}
 
-	virtual void try_complete(const ks_raw_result& result) override {
+	virtual void try_settle(const ks_raw_result& result) override {
 		if (result.is_completed())
 			this->do_complete(result, nullptr, false);
 		else

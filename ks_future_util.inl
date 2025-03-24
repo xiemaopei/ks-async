@@ -515,7 +515,7 @@ private:
 						__schedule_periodic_once(data, next_delay);
 					}
 					else {
-						data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(result.to_error()));
+						data->raw_final_promise_void->try_settle(__last_error_to_raw_result_void(result.to_error()));
 					}
 				},
 				make_async_context().set_priority(0x10000));
@@ -556,7 +556,7 @@ private:
 						__pump_repetitive_once<V>(data);
 					}
 					else {
-						data->raw_final_promise_void->try_complete(__last_error_to_raw_result_void(result.to_error()));
+						data->raw_final_promise_void->try_settle(__last_error_to_raw_result_void(result.to_error()));
 					}
 				},
 				make_async_context().set_priority(0x10000));

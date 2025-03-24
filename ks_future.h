@@ -254,15 +254,7 @@ public: //cast, map, map_value
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 
-public: //deliver_to_promise, set_timeout, try_cancel
-	const this_future_type& deliver_to_promise(const ks_promise<T>& promise) const {
-		ASSERT(this->is_valid());
-		m_raw_future->on_completion(
-			[raw_promise = promise.__get_raw()](const ks_raw_result& raw_result) { raw_promise->try_complete(raw_result); },
-			make_async_context().set_priority(0x10000), nullptr);
-		return *this;
-	}
-
+public: //set_timeout, try_cancel
 	const this_future_type& set_timeout(int64_t timeout) const {
 		ASSERT(this->is_valid());
 		m_raw_future->set_timeout(timeout, true);

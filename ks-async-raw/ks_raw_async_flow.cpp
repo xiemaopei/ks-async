@@ -536,7 +536,7 @@ __ks_async_raw::ks_raw_future_ptr ks_raw_async_flow::get_task_future(const char*
 		task_item->task_promise_opt = ks_raw_promise::create(task_item->task_apartment);
 		if (task_item->task_status == status_t::succeeded || task_item->task_status == status_t::failed) {
 			ASSERT(task_item->task_result.is_completed());
-			task_item->task_promise_opt->try_complete(task_item->task_result);
+			task_item->task_promise_opt->try_settle(task_item->task_result);
 		}
 	}
 
@@ -705,7 +705,7 @@ void ks_raw_async_flow::do_make_task_running_locked(const std::shared_ptr<_TASK_
 	do_fire_task_observers_locked(task_item->task_name, task_item->task_status, ks_error(), lock);
 
 	ASSERT(task_item->task_pending_arg_void.is_completed());
-	task_item->task_trigger_void->try_complete(task_item->task_pending_arg_void);
+	task_item->task_trigger_void->try_settle(task_item->task_pending_arg_void);
 }
 
 void ks_raw_async_flow::do_make_task_completed_locked(const std::shared_ptr<_TASK_ITEM>& task_item, const ks_raw_result& task_result, std::unique_lock<ks_mutex>& lock) {
@@ -746,7 +746,7 @@ void ks_raw_async_flow::do_make_task_completed_locked(const std::shared_ptr<_TAS
 
 	//settle task-promise
 	if (task_item->task_promise_opt != nullptr) {
-		task_item->task_promise_opt->try_complete(task_result);
+		task_item->task_promise_opt->try_settle(task_result);
 	}
 
 	//驱动下游任务

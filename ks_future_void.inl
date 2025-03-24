@@ -444,13 +444,7 @@ public: //cast, map, map_value
 		return m_nothing_future.template map_value<R>(std::forward<X>(other_value));
 	}
 
-public: //deliver_to_promise, set_timeout, try_cancel
-	template <class X /*= void*/, class _ = std::enable_if_t<std::is_void_v<X>>>
-	const this_future_type& deliver_to_promise(const ks_promise<X>& promise) const {
-		m_nothing_future.deliver_to_promise(promise.m_nothing_promise);
-		return *this;
-	}
-
+public: //set_timeout, try_cancel
 	const this_future_type& set_timeout(int64_t timeout) const {
 		m_nothing_future.set_timeout(timeout);
 		return *this;

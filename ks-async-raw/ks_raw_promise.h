@@ -38,7 +38,7 @@ public:
 
 	virtual void resolve(const ks_raw_value& value) = 0;
 	virtual void reject(const ks_error& error) = 0;
-	virtual void try_complete(const ks_raw_result& result) = 0;
+	virtual void try_settle(const ks_raw_result& result) = 0;
 };
 
 
