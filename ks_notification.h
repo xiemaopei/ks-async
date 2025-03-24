@@ -28,6 +28,7 @@ class ks_notification_builder;
 
 class ks_notification {
 public:
+	ks_notification() = delete;
 	ks_notification(const ks_notification&) = default;
 	ks_notification& operator=(const ks_notification&) = default;
 	ks_notification(ks_notification&&) noexcept = default;
@@ -57,15 +58,10 @@ private:
 		std::string notification_name;
 		ks_any notification_data_any;
 		ks_async_context notification_context;
-		std::atomic<int> ref_count = { 1 }; //计数
 	};
 
-	explicit ks_notification(__NOTIFICATION_DATA&& data) {
-		m_data_ptr = std::make_shared<__NOTIFICATION_DATA>();
-		m_data_ptr->notification_name = std::move(data.notification_name);
-		m_data_ptr->notification_data_any = std::move(data.notification_data_any);
-		m_data_ptr->notification_context = std::move(data.notification_context);
-	}
+	explicit ks_notification(std::shared_ptr<__NOTIFICATION_DATA>&& data_ptr)
+		: m_data_ptr(std::move(data_ptr)) {}
 
 	friend class ks_notification_builder;
 
@@ -76,8 +72,8 @@ private:
 
 class ks_notification_builder {
 public:
-	ks_notification_builder() : m_data() {
-	}
+	ks_notification_builder() {}
+	_DISABLE_COPY_CONSTRUCTOR(ks_notification_builder);
 
 	ks_notification_builder& set_sender(const void* sender) {
 		m_data.sender = sender;
@@ -101,12 +97,11 @@ public:
 	}
 
 	ks_notification build() {
-		return ks_notification(std::move(m_data));
+		std::shared_ptr<__NOTIFICATION_DATA> data_ptr = std::make_shared<__NOTIFICATION_DATA>(std::move(m_data));
+		return ks_notification(std::move(data_ptr));
 	}
 
 private:
-	_DISABLE_COPY_CONSTRUCTOR(ks_notification_builder);
-
 	using __NOTIFICATION_DATA = ks_notification::__NOTIFICATION_DATA;
 
 	__NOTIFICATION_DATA m_data;
