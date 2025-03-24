@@ -189,8 +189,27 @@ void test_parallel() {
     std::cout << "test parallel ... ";
 
     auto c = std::make_shared<std::atomic<int>>(0);
+
     ks_future_util
         ::parallel(
+            ks_apartment::default_mta(),
+            std::vector<std::function<void()>>{5, [c]() { ++(*c); }})
+        .on_completion(ks_apartment::default_mta(), make_async_context(), [](const auto& result) {
+            _output_result("completion: ", result);
+            g_exit_latch.count_down();
+        });
+
+    g_exit_latch.wait();
+    ASSERT(*c == 5);
+}
+
+void test_parallel_n() {
+    g_exit_latch.add(1);
+    std::cout << "test parallel_n ... ";
+
+    auto c = std::make_shared<std::atomic<int>>(0);
+    ks_future_util
+        ::parallel_n(
             ks_apartment::default_mta(), 
             [c]() { ++(*c); },
             5)
@@ -211,12 +230,30 @@ void test_sequential() {
     ks_future_util
         ::sequential(
             ks_apartment::default_mta(),
-            [c]() { ++(*c); },
-            5)
+            std::vector<std::function<void()>>{5, [c]() { ++(*c); }})
         .on_completion(ks_apartment::default_mta(), make_async_context(), [](const auto& result) {
             _output_result("completion: ", result);
             g_exit_latch.count_down();
         });
+
+    g_exit_latch.wait();
+    ASSERT(*c == 5);
+}
+
+void test_sequential_n() {
+    g_exit_latch.add(1);
+    std::cout << "test sequential_n ... ";
+
+    auto c = std::make_shared<std::atomic<int>>(0);
+    ks_future_util
+        ::sequential_n(
+            ks_apartment::default_mta(),
+            [c]() { ++(*c); },
+            5)
+        .on_completion(ks_apartment::default_mta(), make_async_context(), [](const auto& result) {
+        _output_result("completion: ", result);
+        g_exit_latch.count_down();
+            });
 
     g_exit_latch.wait();
     ASSERT(*c == 5);
@@ -561,7 +598,10 @@ int main() {
     test_any();
 
     test_parallel();
+    test_parallel_n();
+
     test_sequential();
+    test_sequential_n();
 
     test_repeat();
     test_repeat_periodic();

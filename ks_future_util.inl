@@ -214,30 +214,28 @@ private:
 		return std::tuple<Ts...>(value_vec.at(IDXs).get<Ts>()...);
 	}
 
-public: //parallel, sequential
+public: //parallel, parallel_n
 	template <class FN, class _ = std::enable_if_t <
 		std::is_convertible_v<FN, std::function<void()>> ||
 		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
 		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
 	static ks_future<void> parallel(
-		ks_apartment* apartment, FN&& fn, size_t count,
-		const ks_async_context& context = {}) {
+			ks_apartment* apartment, const std::vector<FN>& fns, 
+			const ks_async_context& context = {}) {
 
-		if (count == 0) {
-			std::prune_if_rvalue(std::forward<FN>(fn));
+		if (fns.empty()) {
 			return ks_future<void>::resolved(nothing);
 		}
-		else if (count == 1) {
+		else if (fns.size() == 1) {
 			return ks_future_util::post<void>(
-				apartment, std::forward<FN>(fn), context);
+				apartment, fns.front(), context);
 		}
 		else {
 			std::vector<ks_future<void>> future_vec;
-			future_vec.reserve(count);
-			const std::remove_cvref_t<FN> fn2 = std::forward<FN>(fn);
-			for (size_t i = 0; i < count; ++i) {
+			future_vec.reserve(fns.size());
+			for (const auto& fn : fns) {
 				future_vec.push_back(
-					ks_future_util::post<void>(apartment, fn2, context)
+					ks_future_util::post<void>(apartment, fn, context)
 				);
 			}
 
@@ -249,34 +247,145 @@ public: //parallel, sequential
 		std::is_convertible_v<FN, std::function<void()>> ||
 		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
 		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
-	static ks_future<void> sequential(
-		ks_apartment* apartment, FN&& fn, size_t count,
+	static ks_future<void> parallel_n(
+		ks_apartment* apartment, FN&& fn, size_t n,
 		const ks_async_context& context = {}) {
 
-		if (count == 0) {
+		if (n == 0) {
 			std::prune_if_rvalue(std::forward<FN>(fn));
 			return ks_future<void>::resolved(nothing);
 		}
-		else if (count == 1) {
+		else if (n == 1) {
 			return ks_future_util::post<void>(
 				apartment, std::forward<FN>(fn), context);
 		}
 		else {
-			std::shared_ptr<size_t> index_p = std::make_shared<size_t>();
-			auto fn2 = [fn = __wrap_async_fn_0<void>(std::forward<FN>(fn)), index_p, count]()->ks_future<void> {
-				if ((*index_p)++ < count)
-					return fn();
-				else
+			std::function<std::invoke_result_t<FN>()> fn_wrapper = std::forward<FN>(fn);
+
+			std::vector<ks_future<void>> future_vec;
+			future_vec.reserve(n);
+			for (size_t i = 0; i < n; ++i) {
+				future_vec.push_back(
+					ks_future_util::post<void>(apartment, fn_wrapper, context)
+				);
+			}
+
+			return ks_future_util::all(future_vec);
+		}
+	}
+
+public: //sequential, sequential_n
+	template <class FN, class _ = std::enable_if_t <
+		std::is_convertible_v<FN, std::function<void()>> ||
+		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
+		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
+	static ks_future<void> sequential(
+		ks_apartment* apartment, const std::vector<FN>& fns,
+		const ks_async_context& context = {}) {
+
+		if (fns.empty()) {
+			return ks_future<void>::resolved(nothing);
+		}
+		else if (fns.size() == 1) {
+			return ks_future_util::post<void>(
+				apartment, fns.front(), context);
+		}
+		else {
+			struct __sequential_data_t {
+				std::vector<FN> fns;
+				size_t index = 0;
+				ks_error last_error = ks_error::unexpected_error();
+			};
+
+			std::shared_ptr<__sequential_data_t> data = std::make_shared< __sequential_data_t>();
+			data->fns = fns;
+
+			auto fn_wrapper = [apartment, data]() -> ks_future<void> {
+				if (data->index < data->fns.size()) {
+					const auto& fn = data->fns[data->index];
+					data->index++;
+					return ks_future<void>
+						::post(
+							apartment, 
+							fn,
+							make_async_context().set_priority(0x10000))
+						.on_failure(
+							apartment,
+							[data](const ks_error& error) { data->last_error = error; },
+							make_async_context().set_priority(0x10000));
+				}
+				else {
 					return ks_future<void>::rejected(ks_error::eof_error());
+				}
 			};
 
 			return ks_future_util
-				::repeat(apartment, fn2, context)
+				::repeat(apartment, fn_wrapper, context)
 				.template then<void>(
 					apartment, 
-					[index_p, count]() -> ks_result<void> {
-						if ((*index_p) < count)
-							return ks_error::eof_error(); //若repeat返回成功，但index未达count，则意味着中间遇到了eof，那么我们还原为返回eof错误
+					[data]() -> ks_result<void> {
+						if (data->index < data->fns.size())
+							return data->last_error; //若repeat返回成功，但index未达n，则意味着中间遇到了eof，那么我们还原为返回eof错误
+						else
+							return nothing;
+					},
+					make_async_context().set_priority(0x10000));
+		}
+	}
+
+	template <class FN, class _ = std::enable_if_t <
+		std::is_convertible_v<FN, std::function<void()>> ||
+		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
+		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
+	static ks_future<void> sequential_n(
+		ks_apartment* apartment, FN&& fn, size_t n,
+		const ks_async_context& context = {}) {
+
+		if (n == 0) {
+			std::prune_if_rvalue(std::forward<FN>(fn));
+			return ks_future<void>::resolved(nothing);
+		}
+		else if (n == 1) {
+			return ks_future_util::post<void>(
+				apartment, std::forward<FN>(fn), context);
+		}
+		else {
+			struct __sequential_data_t {
+				std::function<std::invoke_result_t<FN>()> fn;
+				size_t n;
+				size_t index = 0;
+				ks_error last_error = ks_error::unexpected_error();
+			};
+
+			std::shared_ptr<__sequential_data_t> data = std::make_shared< __sequential_data_t>();
+			data->fn = std::forward<FN>(fn);
+			data->n = n;
+
+			auto fn_wrapper = [apartment, data]() -> ks_future<void> {
+				if (data->index < data->n) {
+					data->index++;
+					return ks_future<void>
+						::post(
+							apartment, 
+							data->fn, 
+							make_async_context().set_priority(0x10000))
+						.on_failure(
+							apartment,
+							[data](const ks_error& error) { data->last_error = error; },
+							make_async_context().set_priority(0x10000));
+				}
+				else {
+					return ks_future<void>::rejected(ks_error::eof_error());
+				}
+			};
+
+			return ks_future_util
+				::repeat(apartment, fn_wrapper, context)
+				.template then<void>(
+					apartment, 
+					[data]() -> ks_result<void> {
+						if (data->index < data->n)
+							return data->last_error; //若repeat返回成功，但index未达n，则意味着中间遇到了eof，那么我们还原为返回eof错误
 						else
 							return nothing;
 					},

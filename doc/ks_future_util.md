@@ -33,19 +33,19 @@ ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<k
 
 
 ```C++
-ks_future<std::tuple<T0, T1, ...>> ks_future_util::all(const ks_future<T0>& future0, const ks_future<T1>& future1, ...);
-ks_future<std::vector<T>> ks_future_util::all(const std::vector<ks_future<T>>& futures);
+ks_future<tuple<T0, T1, ...>> ks_future_util::all(const ks_future<T0>& future0, const ks_future<T1>& future1, ...);
+ks_future<vector<T>> ks_future_util::all(const vector<ks_future<T>>& futures);
 ```
 #### 描述：创建一个ks_future对象，代表所有指定futures全部 “成功”。
 #### 参数：
   - futures: 前序ks_future对象数组。
   - future0, future1, ...: 前序ks_future对象列表。
-#### 返回值：新ks_future对象，其 “值” 类型为std::tuple\<T0, T1, ...>。若有前序future失败，则转发该 “错误”。
+#### 返回值：新ks_future对象，其 “值” 类型为tuple\<T0, T1, ...>。若有前序future失败，则转发该 “错误”。
 #### 特别说明：若某前序future失败，则立即处置此聚合ks_future为失败，不会等待其他future完成（然而会自动尝试tryTancel它们，但并无保证）。
 <br>
 
 ```C++
-ks_future<T> ks_future_util::any(const std::vector<ks_future<T>>& futures);
+ks_future<T> ks_future_util::any(const vector<ks_future<T>>& futures);
 ks_future<T> ks_future_util::any(const ks_future<T>& future0, const ks_future<T>& future1, ...);
 ```
 #### 描述：创建一个ks_future对象，代表任一（实际上就是最先）future “成功”。
@@ -60,39 +60,48 @@ ks_future<T> ks_future_util::any(const ks_future<T>& future0, const ks_future<T>
 
 ```C++
 ks_future<void> parallel(
-		ks_apartment* apartment, std::function<ks_result<void>()>&& fn, 
-    size_t count,
+		ks_apartment* apartment, 
+    const vector<function<void()>>& fns, 
+		const ks_async_context& context = {});
+ks_future<void> parallel_n(
+		ks_apartment* apartment, 
+    function<void()>&& fn, size_t n,
 		const ks_async_context& context = {});
 ```
-#### 描述：并行执行count个异步过程，直至EOF或错误。
+#### 描述：并行执行多个异步过程。
 #### 参数：
   - apartment: 异步执行套间。
-  - fn: 异步函数。
-  - count: 个数。
+  - fns: 异步函数序列。
+  - fn, n: 异步函数，个数。
   - context: 异步任务执行时所需上下文。
-#### 返回值：代表迭代结束的一个future，若至EOF结束则返回成功。
+#### 返回值：代表迭代结束的一个future。
 <br>
 
 ```C++
 ks_future<void> sequential(
-		ks_apartment* apartment, std::function<ks_result<void>()>&& fn, 
-    size_t count,
+		ks_apartment* apartment, 
+    const vector<function<void()>> fns, 
+		const ks_async_context& context = {});
+ks_future<void> sequential_n(
+		ks_apartment* apartment, 
+    function<void()>&& fn, size_t n,
 		const ks_async_context& context = {});
 ```
-#### 描述：串行执行count个异步过程，直至EOF或错误。
+#### 描述：串行执行多个异步过程。
 #### 参数：
   - apartment: 异步执行套间。
-  - fn: 异步函数。
-  - count: 个数。
+  - fns: 异步函数序列。
+  - fn, n: 异步函数，个数。
   - context: 异步任务执行时所需上下文。
-#### 返回值：代表迭代结束的一个future，若至EOF结束则返回成功。
+#### 返回值：代表迭代结束的一个future。
 <br>
 <br>
 
 
 ```C++
 ks_future<void> repeat(
-		ks_apartment* apartment, std::function<ks_result<void>()>&& fn, 
+		ks_apartment* apartment, 
+    function<ks_result<void>()>&& fn, 
 		const ks_async_context& context = {});
 ```
 #### 描述：重复执行一个异步过程，直至EOF或错误。
@@ -105,8 +114,9 @@ ks_future<void> repeat(
 
 ```C++
 ks_future<void> repeat_periodic(
-		ks_apartment* apartment, std::function<ks_result<void>()>&& fn, 
-		int64_t first_delay, int64_t interval, 
+		ks_apartment* apartment, 
+    function<ks_result<void>()>&& fn, 
+    int64_t first_delay, int64_t interval, 
 		const ks_async_context& context = {});
 ```
 #### 描述：定时重复执行一个异步过程，直至EOF或错误。
