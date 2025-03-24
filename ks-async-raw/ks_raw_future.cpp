@@ -151,43 +151,35 @@ protected:
 	}
 
 	virtual bool do_wait() override {
-		if (m_completed_result.is_completed())
-			return true;
-
 		ks_apartment* cur_apartment = ks_apartment::current_thread_apartment();
 		if (cur_apartment != nullptr && (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0) {
-			if (true) {
-				std::unique_lock<ks_mutex> lock(m_mutex);
-				m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，但不必重复记录，因为至多仅顶层可能会卡在真cv.wait调用处
-			}
+			std::unique_lock<ks_mutex> lock(m_mutex);
 
+			m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，但不必重复记录，因为至多仅顶层可能会卡在真cv.wait调用处
+
+			lock.unlock();
 			bool was_satisfied = cur_apartment->__do_run_nested_pump_loop_for_extern_waiting(
 				[this, this_shared = this->shared_from_this()]() -> bool { return m_completed_result.is_completed(); }
 			);
 
-			if (true) {
-				std::unique_lock<ks_mutex> lock(m_mutex);
-				m_waiting_for_me_apartment_set.erase(cur_apartment); //若退嵌套loop则会遭遇缺失项，这是正常的
+			lock.lock();
+			m_waiting_for_me_apartment_set.erase(cur_apartment); //若退嵌套loop则会遭遇缺失项，这是正常的
 
-				if (!m_completed_result.is_completed()) {
-					ASSERT(!was_satisfied);
-					this->do_complete_locked<false>(ks_error::interupted_error(), cur_apartment, false, lock);
-					return false;
-				}
+			if (!m_completed_result.is_completed()) {
+				ASSERT(!was_satisfied);
+				this->do_complete_locked<false>(ks_error::interupted_error(), cur_apartment, false, lock);
+				return false;
 			}
 
 			return true;
 		}
 		else {
 			std::unique_lock<ks_mutex> lock(m_mutex);
-			if (m_completed_result.is_completed())
-				return true;
-
-			++m_completed_result_cv_waiting_rc;
-			while (!m_completed_result.is_completed()) {
-				m_completed_result_cv.wait(lock);
+			if (!m_completed_result.is_completed()) {
+				m_completed_result_cv_waiting_flag_v = true;
+				while (!m_completed_result.is_completed()) 
+					m_completed_result_cv.wait(lock);
 			}
-			--m_completed_result_cv_waiting_rc;
 
 			return true;
 		}
@@ -281,7 +273,7 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_completed_result_cv_waiting_rc != 0) {
+		if (m_completed_result_cv_waiting_flag_v) {
 			m_completed_result_cv.notify_all();
 		}
 
@@ -423,7 +415,6 @@ protected:
 	ks_raw_result m_completed_result;
 	ks_apartment* m_completed_prefer_apartment = nullptr;
 	ks_condition_variable m_completed_result_cv{}; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
-	int m_completed_result_cv_waiting_rc = 0; //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
 
 	ks_async_context m_living_context; //在complete后被自动清除
 	//volatile bool m_living_context_controller_available_v = false;  //被移动位置，使内存更紧凑
@@ -445,6 +436,8 @@ protected:
 	const bool m_cancelable;  //const-like
 	volatile bool m_pending_flag_v = true;
 	volatile bool m_living_context_controller_available_v = false;
+	volatile bool m_completed_result_cv_waiting_flag_v = false; //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
+
 
 	friend class ks_raw_future;
 };
