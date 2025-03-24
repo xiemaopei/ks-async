@@ -171,7 +171,8 @@ protected:
 
 			lock.unlock();
 			bool was_satisfied = cur_apartment->__do_run_nested_pump_loop_for_extern_waiting(
-				[this, this_shared = this->shared_from_this()]() -> bool { return m_completed_result.is_completed(); }
+				this,
+				[this, this_shared = this->shared_from_this()](void*) -> bool { return m_completed_result.is_completed(); }
 			);
 
 			lock.lock();
@@ -304,7 +305,7 @@ protected:
 		}
 
 		for (ks_apartment* apartment : m_waiting_for_me_apartment_set) {
-			apartment->__do_notify_nested_pump_loop_for_extern_waiting();
+			apartment->__do_notify_nested_pump_loop_for_extern_waiting(this);
 		}
 
 		if (m_timeout_schedule_id != 0) {

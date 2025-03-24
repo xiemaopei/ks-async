@@ -79,8 +79,8 @@ public:
 	//其存在的问题和隐患包括：
 	//1、若出现嵌套wait，则只能后入先出
 	//2、仍无法杜绝逻辑上的死锁，需要业务逻辑实现者自己保证
-	virtual bool __do_run_nested_pump_loop_for_extern_waiting(std::function<bool()>&& extern_pred_fn) { ASSERT(false); throw std::runtime_error("this apartment doesn't support nested pump-loop"); }
-	virtual void __do_notify_nested_pump_loop_for_extern_waiting() { ASSERT(false); throw std::runtime_error("this apartment doesn't support nested pump-loop"); }
+	virtual bool __do_run_nested_pump_loop_for_extern_waiting(void* obj, std::function<bool(void* obj)>&& extern_pred_fn) { ASSERT(false); throw std::runtime_error("this apartment doesn't support nested pump-loop"); }
+	virtual void __do_notify_nested_pump_loop_for_extern_waiting(void* obj) { ASSERT(false); throw std::runtime_error("this apartment doesn't support nested pump-loop"); }
 
 public:
 	//注：设定default-mta最大线程数，请在首次调用default_mta()方法前调用。
