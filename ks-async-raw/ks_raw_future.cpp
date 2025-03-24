@@ -20,26 +20,25 @@ limitations under the License.
 #include <algorithm>
 #include <set>
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-#	if defined(_WIN32)
-#		include <Windows.h>
-#		include <processthreadsapi.h>
-		using __native_pid_t = DWORD;
-		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
-#	elif defined(__APPLE__)
-#		include <sys/proc.h>
-		using __native_pid_t = int;
-		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
-#	else
-#		include <unistd.h>
-		using __native_pid_t = pid_t;
-		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
-
-#	endif
-#else
-	using __native_pid_t = int;
-	static inline __native_pid_t __native_get_current_pid() { return nullptr; }
-#endif
+//#if __KS_APARTMENT_ATFORK_ENABLED
+//#	if defined(_WIN32)
+//#		include <Windows.h>
+//#		include <processthreadsapi.h>
+//		using __native_pid_t = DWORD;
+//		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
+//#	elif defined(__APPLE__)
+//#		include <sys/proc.h>
+//		using __native_pid_t = int;
+//		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
+//#	else
+//#		include <unistd.h>
+//		using __native_pid_t = pid_t;
+//		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
+//#	endif
+//#else
+//	using __native_pid_t = int;
+//	static inline __native_pid_t __native_get_current_pid() { return nullptr; }
+//#endif
 
 template <class FN>
 using function = std::function<FN>;
@@ -63,7 +62,7 @@ enum class ks_raw_future_mode {
 class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_from_this<ks_raw_future> {
 protected:
 	explicit ks_raw_future_baseimp(ks_raw_future_mode mode, bool cancelable, ks_apartment* spec_apartment, const ks_async_context& living_context)
-		: m_spec_apartment(spec_apartment), m_create_time(std::chrono::steady_clock::now()), m_belong_pid(__native_get_current_pid()), m_living_context(living_context)
+		: m_spec_apartment(spec_apartment), m_create_time(std::chrono::steady_clock::now()), m_living_context(living_context)
 		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
@@ -184,19 +183,11 @@ protected:
 			if (m_completed_result.is_completed())
 				return true;
 
-			if (!__KS_APARTMENT_ATFORK_ENABLED || m_belong_pid == __native_get_current_pid()) {
-				++m_completed_result_cv_waiting_rc;
-				while (!m_completed_result.is_completed()) {
-					m_completed_result_cv.wait(lock);
-				}
-				--m_completed_result_cv_waiting_rc;
+			++m_completed_result_cv_waiting_rc;
+			while (!m_completed_result.is_completed()) {
+				m_completed_result_cv.wait(lock);
 			}
-			else {
-				lock.unlock();
-				while (!m_completed_result.is_completed()) {
-					std::this_thread::yield();
-				}
-			}
+			--m_completed_result_cv_waiting_rc;
 
 			return true;
 		}
@@ -290,7 +281,7 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_completed_result_cv_waiting_rc != 0 && (!__KS_APARTMENT_ATFORK_ENABLED || m_belong_pid == __native_get_current_pid())) {
+		if (m_completed_result_cv_waiting_rc != 0) {
 			m_completed_result_cv.notify_all();
 		}
 
@@ -426,14 +417,13 @@ protected:
 	//const bool m_cancelable;  //const-like  //被移动位置，使内存更紧凑
 	const std::add_const_t<ks_apartment*> m_spec_apartment;  //const-like
 	const std::chrono::steady_clock::time_point m_create_time;  //const-like
-	const __native_pid_t m_belong_pid;  //const-like
 
 	ks_mutex m_mutex;
 
 	ks_raw_result m_completed_result;
 	ks_apartment* m_completed_prefer_apartment = nullptr;
 	ks_condition_variable m_completed_result_cv{}; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
-	int m_completed_result_cv_waiting_rc = 0;
+	int m_completed_result_cv_waiting_rc = 0; //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
 
 	ks_async_context m_living_context; //在complete后被自动清除
 	//volatile bool m_living_context_controller_available_v = false;  //被移动位置，使内存更紧凑
