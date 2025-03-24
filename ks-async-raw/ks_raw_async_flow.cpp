@@ -323,10 +323,10 @@ bool ks_raw_async_flow::remove_observer(uint64_t observer_id) {
 }
 
 
-ks_raw_value ks_raw_async_flow::get_value(const char* name) {
+ks_raw_value ks_raw_async_flow::get_value(const char* key) {
 	std::unique_lock<ks_mutex> lock(m_mutex);
 
-	auto it = m_raw_value_map.find(name);
+	auto it = m_raw_value_map.find(key);
 	if (it == m_raw_value_map.cend()) {
 		ASSERT(false);
 		throw std::runtime_error("no such value");
@@ -335,9 +335,9 @@ ks_raw_value ks_raw_async_flow::get_value(const char* name) {
 	return it->second;
 }
 
-void ks_raw_async_flow::set_value(const char* name, const ks_raw_value& value) {
+void ks_raw_async_flow::set_custom_value(const char* key, const ks_raw_value& value) {
 	std::unique_lock<ks_mutex> lock(m_mutex);
-	m_raw_value_map[name] = value;
+	m_raw_value_map[key] = value;
 }
 
 

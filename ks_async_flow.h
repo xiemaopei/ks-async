@@ -68,16 +68,16 @@ public:
 	}
 
 public:
-	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
-	void set_value(const char* name, const X& value) const {
+	template <class T>
+	T get_value(const char* key) const {
 		ASSERT(this->is_valid());
-		return m_raw_flow->set_value(name, ks_raw_value::of<T>(value));
+		return m_raw_flow->get_value(key).get<T>();
 	}
 
-	template <class T>
-	T get_value(const char* name) const {
+	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
+	void set_custom_value(const char* key, const X& value) const {
 		ASSERT(this->is_valid());
-		return m_raw_flow->get_value(name).get<T>();
+		return m_raw_flow->set_custom_value(key, ks_raw_value::of<T>(value));
 	}
 
 public:

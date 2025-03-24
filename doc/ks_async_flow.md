@@ -50,11 +50,17 @@ bool remove_observer(uint64_t id);
 
 
 ```C++
-T get_value<T>(const char* name);
-void set_value<T>(const char* name, const T& value);
+T get_value<T>(const char* key);
 ```
-#### 描述：设置/获取named-value。
+#### 描述：根据key获取value。
 #### 特别说明：get_value方法也用于获取task的结果值。
+<br>
+
+```C++
+void set_custom_value<T>(const char* key, const T& value);
+```
+#### 描述：根据自定义的key设置value。
+#### 特别说明：仅用于设置自定义键值对。反之，各task的结果会被自动记录，无需手工设置。
 <br>
 <br>
 
