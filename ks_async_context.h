@@ -299,11 +299,11 @@ private:
 			fat_data_p->owner_pointer_unlock_fn(self_locker);
 			return ks_any();
 		}
-		else if (owner_need_lock) {
-			return fat_data_p->owner_pointer_try_lock_fn();
-		}
 		else if (parent_need_lock) {
 			return __do_lock_owner_ptr(fat_data_p->parent_fat_data_p);
+		}
+		else if (owner_need_lock) {
+			return fat_data_p->owner_pointer_try_lock_fn();
 		}
 		else {
 			return ks_any::of(true);
@@ -320,11 +320,11 @@ private:
 				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, sub_pair.second);
 				fat_data_p->owner_pointer_unlock_fn(sub_pair.first);
 			}
-			else if (owner_need_lock) {
-				fat_data_p->owner_pointer_unlock_fn(locker);
-			}
 			else if (parent_need_lock) {
 				__do_unlock_owner_ptr(fat_data_p->parent_fat_data_p, locker);
+			}
+			else if (owner_need_lock) {
+				fat_data_p->owner_pointer_unlock_fn(locker);
 			}
 
 			locker.reset();
