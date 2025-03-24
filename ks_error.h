@@ -21,7 +21,7 @@ limitations under the License.
 
 class ks_error final {
 public:
-	ks_error() : m_code(0) {}
+	ks_error() : m_code(0), m_payload_any() {}
 
 	ks_error(const ks_error&) = default;
 	ks_error& operator=(const ks_error&) = default;
@@ -36,6 +36,15 @@ public:
 		return ret;
 	}
 
+	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
+	static ks_error of(HRESULT code, X&& payload) {
+		ks_error ret;
+		ret.m_code = code;
+		ret.m_payload_any = ks_any::of<T>(std::forward<X>(payload));
+		return ret;
+	}
+
+public:
 	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
 	ks_error with_payload(X&& payload) const {
 		ks_error ret = *this;
