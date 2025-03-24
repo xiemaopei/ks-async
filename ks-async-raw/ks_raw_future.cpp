@@ -67,14 +67,23 @@ class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_fr
 protected:
 	explicit ks_raw_future_baseimp(ks_raw_future_mode mode, bool cancelable, ks_apartment* spec_apartment, const ks_async_context& living_context)
 		: m_spec_apartment(spec_apartment), m_create_time(std::chrono::steady_clock::now()), m_living_context(living_context)
-		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {}
+		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {
+	}
+
+	~ks_raw_future_baseimp() {
+		if (m_completed_cv_belong_pid != __native_invalid_pid && m_completed_cv_belong_pid != __native_get_current_pid()) {
+			ASSERT(m_completed_cv_opt != nullptr);
+			m_completed_cv_opt.release(); //避免fork后卡死，不析构，直接丢弃
+			m_completed_cv_belong_pid = __native_invalid_pid;
+		}
+	}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
 
 public:
-	virtual ks_raw_future_ptr then(function<ks_raw_result(const ks_raw_value &)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr trap(function<ks_raw_result(const ks_error &)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr transform(function<ks_raw_result(const ks_raw_result &)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr then(function<ks_raw_result(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr trap(function<ks_raw_result(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr transform(function<ks_raw_result(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
 
 	virtual ks_raw_future_ptr flat_then(function<ks_raw_future_ptr(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
 	virtual ks_raw_future_ptr flat_trap(function<ks_raw_future_ptr(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
@@ -155,10 +164,13 @@ protected:
 	}
 
 	virtual bool do_wait() override {
+		std::unique_lock<ks_mutex> lock(m_mutex);
+		if (m_completed_result.is_completed())
+			return true;
+
 		ks_apartment* cur_apartment = ks_apartment::current_thread_apartment();
 		if (cur_apartment != nullptr && (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0) {
-			std::unique_lock<ks_mutex> lock(m_mutex);
-
+			ASSERT(lock.owns_lock());
 			m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，但不必重复记录，因为至多仅顶层可能会卡在真cv.wait调用处
 
 			lock.unlock();
@@ -178,26 +190,23 @@ protected:
 			return true;
 		}
 		else {
-			std::unique_lock<ks_mutex> lock(m_mutex);
-			if (!m_completed_result.is_completed()) {
+			do {
 				__native_pid_t cur_pid = __native_get_current_pid();
-				ASSERT(cur_pid != __native_invalid_pid);
+				if (m_completed_cv_belong_pid == __native_invalid_pid) {
+					ASSERT(m_completed_cv_opt == nullptr);
+					m_completed_cv_opt = std::make_unique<ks_condition_variable>();
+					m_completed_cv_belong_pid = cur_pid;
+				}
+				else if (m_completed_cv_belong_pid != cur_pid) {
+					ASSERT(m_completed_cv_opt != nullptr);
+					m_completed_cv_opt.release(); //避免fork后卡死，不析构，直接丢弃
+					m_completed_cv_opt = std::make_unique<ks_condition_variable>();
+					m_completed_cv_belong_pid = cur_pid;
+				}
 
-				if (m_completed_cv_waiting_pid == __native_invalid_pid) {
-					m_completed_cv_waiting_pid = __native_get_current_pid();
-					while (!m_completed_result.is_completed())
-						m_completed_cv.wait(lock);
-				}
-				else if (m_completed_cv_waiting_pid == __native_get_current_pid()) {
-					while (!m_completed_result.is_completed())
-						m_completed_cv.wait(lock);
-				}
-				else {
-					lock.unlock();
-					while (!m_completed_result.is_completed())
-						std::this_thread::yield();
-				}
-			}
+				ASSERT(m_completed_cv_opt != nullptr);
+				m_completed_cv_opt->wait(lock);
+			} while (!m_completed_result.is_completed());
 
 			return true;
 		}
@@ -291,8 +300,9 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_completed_cv_waiting_pid != __native_invalid_pid && m_completed_cv_waiting_pid == __native_get_current_pid()) {
-			m_completed_cv.notify_all();
+		if (m_completed_cv_belong_pid != __native_invalid_pid && m_completed_cv_belong_pid == __native_get_current_pid()) {
+			ASSERT(m_completed_cv_opt != nullptr);
+			m_completed_cv_opt->notify_all();
 		}
 
 		for (ks_apartment* apartment : m_waiting_for_me_apartment_set) {
@@ -432,8 +442,9 @@ protected:
 
 	ks_raw_result m_completed_result;
 	ks_apartment* m_completed_prefer_apartment = nullptr;
-	ks_condition_variable m_completed_cv{}; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
-	//__native_pid_t m_completed_cv_waiting_pid = __native_invalid_pid;  //被移动位置，使内存更紧凑
+
+	std::unique_ptr<ks_condition_variable> m_completed_cv_opt = nullptr; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
+	__native_pid_t m_completed_cv_belong_pid = __native_invalid_pid; //记录cv所属pid，保证进程内操作cv的一致性
 
 	ks_async_context m_living_context; //在complete后被自动清除
 	//volatile bool m_living_context_controller_available_v = false;  //被移动位置，使内存更紧凑
@@ -452,7 +463,6 @@ protected:
 	//为了使内存布局更紧凑，将部分成员变量集中安置
 	volatile HRESULT m_cancel_error_code_v = 0;
 	const ks_raw_future_mode m_mode;  //const-like
-	__native_pid_t m_completed_cv_waiting_pid = __native_invalid_pid;  //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
 	const bool m_cancelable;  //const-like
 	volatile bool m_pending_flag_v = true;
 	volatile bool m_living_context_controller_available_v = false;
