@@ -20,25 +20,29 @@ limitations under the License.
 #include <algorithm>
 #include <set>
 
-//#if __KS_APARTMENT_ATFORK_ENABLED
-//#	if defined(_WIN32)
-//#		include <Windows.h>
-//#		include <processthreadsapi.h>
-//		using __native_pid_t = DWORD;
-//		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
-//#	elif defined(__APPLE__)
-//#		include <sys/proc.h>
-//		using __native_pid_t = int;
-//		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
-//#	else
-//#		include <unistd.h>
-//		using __native_pid_t = pid_t;
-//		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
-//#	endif
-//#else
-//	using __native_pid_t = int;
-//	static inline __native_pid_t __native_get_current_pid() { return nullptr; }
-//#endif
+#if __KS_APARTMENT_ATFORK_ENABLED
+#	if defined(_WIN32)
+#		include <Windows.h>
+#		include <processthreadsapi.h>
+		using __native_pid_t = DWORD;
+		static inline __native_pid_t __native_get_current_pid() { return ::GetCurrentProcessId(); }
+		static const __native_pid_t __native_invalid_pid = 0;
+#	elif defined(__APPLE__)
+#		include <sys/proc.h>
+		using __native_pid_t = int;
+		static inline __native_pid_t __native_get_current_pid() { return proc_selfpid(); }
+		static const __native_pid_t __native_invalid_pid = 0;
+#	else
+#		include <unistd.h>
+		using __native_pid_t = pid_t;
+		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
+		static const __native_pid_t __native_invalid_pid = 0;
+#	endif
+#else
+	using __native_pid_t = int;
+	static inline __native_pid_t __native_get_current_pid() { return -1; }
+		static const __native_pid_t __native_invalid_pid = 0;
+#endif
 
 template <class FN>
 using function = std::function<FN>;
@@ -176,9 +180,23 @@ protected:
 		else {
 			std::unique_lock<ks_mutex> lock(m_mutex);
 			if (!m_completed_result.is_completed()) {
-				m_completed_result_cv_waiting_flag_v = true;
-				while (!m_completed_result.is_completed()) 
-					m_completed_result_cv.wait(lock);
+				__native_pid_t cur_pid = __native_get_current_pid();
+				ASSERT(cur_pid != __native_invalid_pid);
+
+				if (m_completed_cv_waiting_pid == __native_invalid_pid) {
+					m_completed_cv_waiting_pid = __native_get_current_pid();
+					while (!m_completed_result.is_completed())
+						m_completed_cv.wait(lock);
+				}
+				else if (m_completed_cv_waiting_pid == __native_get_current_pid()) {
+					while (!m_completed_result.is_completed())
+						m_completed_cv.wait(lock);
+				}
+				else {
+					lock.unlock();
+					while (!m_completed_result.is_completed())
+						std::this_thread::yield();
+				}
 			}
 
 			return true;
@@ -273,8 +291,8 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_completed_result_cv_waiting_flag_v) {
-			m_completed_result_cv.notify_all();
+		if (m_completed_cv_waiting_pid != __native_invalid_pid && m_completed_cv_waiting_pid == __native_get_current_pid()) {
+			m_completed_cv.notify_all();
 		}
 
 		for (ks_apartment* apartment : m_waiting_for_me_apartment_set) {
@@ -414,7 +432,8 @@ protected:
 
 	ks_raw_result m_completed_result;
 	ks_apartment* m_completed_prefer_apartment = nullptr;
-	ks_condition_variable m_completed_result_cv{}; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
+	ks_condition_variable m_completed_cv{}; //fork子进程中操作cv有几率死锁，故子进程中不要使用它！
+	//__native_pid_t m_completed_cv_waiting_pid = __native_invalid_pid;  //被移动位置，使内存更紧凑
 
 	ks_async_context m_living_context; //在complete后被自动清除
 	//volatile bool m_living_context_controller_available_v = false;  //被移动位置，使内存更紧凑
@@ -433,11 +452,10 @@ protected:
 	//为了使内存布局更紧凑，将部分成员变量集中安置
 	volatile HRESULT m_cancel_error_code_v = 0;
 	const ks_raw_future_mode m_mode;  //const-like
+	__native_pid_t m_completed_cv_waiting_pid = __native_invalid_pid;  //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
 	const bool m_cancelable;  //const-like
 	volatile bool m_pending_flag_v = true;
 	volatile bool m_living_context_controller_available_v = false;
-	volatile bool m_completed_result_cv_waiting_flag_v = false; //为避免fork后子进程执行notify，若未被wait则略过调用notify，可以满足正常用况，但乱用则仍有卡死风险！
-
 
 	friend class ks_raw_future;
 };
