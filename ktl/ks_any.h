@@ -147,7 +147,7 @@ public:
 
 	template <class T>
 	const T& get() const {
-		return this->__cast<T>();
+		return this->do_get<T>();
 	}
 
 	void reset() {
@@ -170,7 +170,7 @@ public:
 
 private:
 	template <class T>
-	const T& __cast() const {
+	const T& do_get() const {
 		using XT = std::remove_cvref_t<T>;
 
 		ASSERT(this->has_value());

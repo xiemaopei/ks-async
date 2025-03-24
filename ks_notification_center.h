@@ -41,7 +41,10 @@ public:
 	KS_ASYNC_API void remove_observer(const void* observer);
 
 public:
-	KS_ASYNC_INLINE_API void post_notification(const void* sender, const char* notification_name, const ks_async_context& notification_context = {}) {
+	KS_ASYNC_INLINE_API void post_notification(
+		const void* sender, const char* notification_name, 
+		const ks_async_context& notification_context = {}) {
+
 		return this->post_notification_indirect(ks_notification_builder()
 			.set_sender(sender)
 			.set_notification_name(notification_name)
@@ -50,7 +53,10 @@ public:
 	}
 
 	template <class DATA_TYPE, class X = DATA_TYPE, class _ = std::enable_if_t<std::is_convertible_v<X, DATA_TYPE>>>
-	KS_ASYNC_INLINE_API void post_notification_with_data(const void* sender, const char* notification_name, X&& notification_data, const ks_async_context& notification_context = {}) {
+	KS_ASYNC_INLINE_API void post_notification_with_data(
+		const void* sender, const char* notification_name, X&& notification_data, 
+		const ks_async_context& notification_context = {}) {
+
 		return this->post_notification_indirect(ks_notification_builder()
 			.set_sender(sender)
 			.set_notification_name(notification_name)

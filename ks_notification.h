@@ -35,92 +35,79 @@ public:
 
 public:
 	const void* get_sender() const {
-		return m_data->sender;
+		return m_data_ptr->sender;
 	}
 
 	const char* get_notification_name() const {
-		return m_data->notification_name.c_str();
+		return m_data_ptr->notification_name.c_str();
 	}
 
 	template <class DATA_TYPE>
 	const DATA_TYPE& get_notification_data() const { 
-		return m_data->notification_data_any.get<DATA_TYPE>();
+		return m_data_ptr->notification_data_any.get<DATA_TYPE>();
 	}
 
 	ks_async_context get_notification_context() const { 
-		return m_data->notification_context;
+		return m_data_ptr->notification_context;
 	}
 
 private:
 	struct __NOTIFICATION_DATA {
 		const void* sender = nullptr;
-		std::string notification_name{};
-		ks_any notification_data_any{};
-		ks_async_context notification_context = ks_async_context::__empty_inst();
-		std::atomic<int> ref_count = { 1 };
+		std::string notification_name;
+		ks_any notification_data_any;
+		ks_async_context notification_context;
+		std::atomic<int> ref_count = { 1 }; //计数
 	};
 
-	enum class __raw_ctor { v };
-	explicit ks_notification(__raw_ctor, std::shared_ptr<__NOTIFICATION_DATA>&& data) : m_data(std::move(data)) { ASSERT(m_data != nullptr); }
+	explicit ks_notification(__NOTIFICATION_DATA&& data) {
+		m_data_ptr = std::make_shared<__NOTIFICATION_DATA>();
+		m_data_ptr->notification_name = std::move(data.notification_name);
+		m_data_ptr->notification_data_any = std::move(data.notification_data_any);
+		m_data_ptr->notification_context = std::move(data.notification_context);
+	}
 
 	friend class ks_notification_builder;
 
 private:
-	std::shared_ptr<__NOTIFICATION_DATA> m_data;
+	std::shared_ptr<__NOTIFICATION_DATA> m_data_ptr;
 };
 
 
 class ks_notification_builder {
 public:
-	ks_notification_builder() = default;
-	_DISABLE_COPY_CONSTRUCTOR(ks_notification_builder);
+	ks_notification_builder() : m_data() {
+	}
 
-public:
 	ks_notification_builder& set_sender(const void* sender) {
-		do_prepare_notification_data_cow();
-		m_data->sender = sender;
+		m_data.sender = sender;
 		return *this;
 	}
 
 	ks_notification_builder& set_notification_name(const char* notification_name) {
-		do_prepare_notification_data_cow();
-		m_data->notification_name = notification_name;
+		m_data.notification_name = notification_name;
 		return *this;
 	}
 
 	template <class DATA_TYPE, class X = DATA_TYPE, class _ = std::enable_if_t<std::is_convertible_v<X, DATA_TYPE>>>
 	ks_notification_builder& set_notification_data(X&& notification_data) {
-		do_prepare_notification_data_cow();
-		m_data->notification_data_any = ks_any::of<DATA_TYPE>(std::forward<X>(notification_data));
+		m_data.notification_data_any = ks_any::of<DATA_TYPE>(std::forward<X>(notification_data));
 		return *this;
 	}
 
 	ks_notification_builder& set_notification_context(const ks_async_context& notification_context) {
-		do_prepare_notification_data_cow();
-		m_data->notification_context = notification_context;
+		m_data.notification_context = notification_context;
 		return *this;
 	}
 
-public:
 	ks_notification build() {
-		ASSERT(m_data != nullptr);
-		do_prepare_notification_data_cow(); //safe
-
-		std::shared_ptr<__NOTIFICATION_DATA> data;
-		data.swap(m_data);
-
-		return ks_notification(ks_notification::__raw_ctor::v, std::move(data));
+		return ks_notification(std::move(m_data));
 	}
 
 private:
-	void do_prepare_notification_data_cow() {
-		if (m_data == nullptr) {
-			m_data = std::make_shared<__NOTIFICATION_DATA>();
-		}
-	}
+	_DISABLE_COPY_CONSTRUCTOR(ks_notification_builder);
 
-private:
 	using __NOTIFICATION_DATA = ks_notification::__NOTIFICATION_DATA;
 
-	std::shared_ptr<__NOTIFICATION_DATA> m_data;
+	__NOTIFICATION_DATA m_data;
 };
