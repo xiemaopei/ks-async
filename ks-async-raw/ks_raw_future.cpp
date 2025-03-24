@@ -37,12 +37,10 @@ limitations under the License.
 		static inline __native_pid_t __native_get_current_pid() { return getpid(); }
 #	endif
 #else
-	using __native_pid_t = int;
-	static inline __native_pid_t __native_get_current_pid() { return -1; }
+		using __native_pid_t = int;
+		static inline __native_pid_t __native_get_current_pid() { return -1; }
 #endif
 
-template <class FN>
-using function = std::function<FN>;
 
 void __forcelink_to_ks_raw_future_cpp() {}
 
@@ -77,17 +75,17 @@ protected:
 	}
 
 public:
-	virtual ks_raw_future_ptr then(function<ks_raw_result(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr trap(function<ks_raw_result(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr transform(function<ks_raw_result(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr then(std::function<ks_raw_result(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr trap(std::function<ks_raw_result(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr transform(std::function<ks_raw_result(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
 
-	virtual ks_raw_future_ptr flat_then(function<ks_raw_future_ptr(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr flat_trap(function<ks_raw_future_ptr(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr flat_transform(function<ks_raw_future_ptr(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr flat_then(std::function<ks_raw_future_ptr(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr flat_trap(std::function<ks_raw_future_ptr(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr flat_transform(std::function<ks_raw_future_ptr(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
 
-	virtual ks_raw_future_ptr on_success(function<void(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr on_failure(function<void(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
-	virtual ks_raw_future_ptr on_completion(function<void(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr on_success(std::function<void(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr on_failure(std::function<void(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
+	virtual ks_raw_future_ptr on_completion(std::function<void(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
 
 	virtual ks_raw_future_ptr noop(ks_apartment* apartment) override;
 
@@ -533,7 +531,7 @@ protected:
 
 class ks_raw_task_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_task_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, function<ks_raw_result()>&& task_fn, const ks_async_context& living_context, int64_t delay)
+	explicit ks_raw_task_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_result()>&& task_fn, const ks_async_context& living_context, int64_t delay)
 		: ks_raw_future_baseimp(mode, true, spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta(), living_context)
 		, m_task_fn(std::move(task_fn)), m_delay(delay) {}
 
@@ -550,7 +548,7 @@ public:
 
 		//pending_schedule_fn不对context进行捕获。
 		//这样做的意图是：对于delayed任务，当try_cancel时，即使apartment::try_unschedule失败，也不影响context的及时释放。
-		function<void()> pending_schedule_fn = [this, this_shared = this->shared_from_this(), prefer_apartment, context = m_living_context]() mutable -> void {
+		std::function<void()> pending_schedule_fn = [this, this_shared = this->shared_from_this(), prefer_apartment, context = m_living_context]() mutable -> void {
 			std::unique_lock<ks_mutex> lock2(m_mutex);
 			m_pending_schedule_id = 0; //这个变量第一时间被清0
 			if (m_completed_result.is_completed())
@@ -640,7 +638,7 @@ protected:
 	}
 
 private:
-	function<ks_raw_result()> m_task_fn; //在complete后被自动清除
+	std::function<ks_raw_result()> m_task_fn; //在complete后被自动清除
 	const int64_t m_delay;  //const-like
 	uint64_t m_pending_schedule_id = 0;
 };
@@ -648,7 +646,7 @@ private:
 
 class ks_raw_pipe_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_pipe_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, function<ks_raw_result(const ks_raw_result&)>&& fn_ex, const ks_async_context& living_context, bool cancelable)
+	explicit ks_raw_pipe_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_result(const ks_raw_result&)>&& fn_ex, const ks_async_context& living_context, bool cancelable)
 		: ks_raw_future_baseimp(mode, cancelable, spec_apartment, living_context), m_fn_ex(std::move(fn_ex)) {}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_pipe_future);
@@ -711,7 +709,7 @@ protected:
 			m_spec_apartment == ks_apartment::__virtual_inplace_apartment() || 
 			m_spec_apartment == prefer_apartment);
 
-		function<void()> run_fn = [this, this_shared = this->shared_from_this(), prev_result, prefer_apartment, context = m_living_context]() mutable -> void {
+		std::function<void()> run_fn = [this, this_shared = this->shared_from_this(), prev_result, prefer_apartment, context = m_living_context]() mutable -> void {
 			std::unique_lock<ks_mutex> lock2(m_mutex);
 			if (m_completed_result.is_completed())
 				return; //pre-check cancelled
@@ -728,7 +726,7 @@ protected:
 				if (m_cancelable && this->do_check_cancel_locking(lock2))
 					result = prev_result.is_error() ? prev_result.to_error() : this->do_acquire_cancel_error_locking(ks_error::cancelled_error(), lock2);
 				else {
-					function<ks_raw_result(const ks_raw_result&)> fn_ex = std::move(m_fn_ex);
+					std::function<ks_raw_result(const ks_raw_result&)> fn_ex = std::move(m_fn_ex);
 					lock2.unlock();
 					result = fn_ex(prev_result).require_completed_or_error();
 					lock2.lock();
@@ -791,14 +789,14 @@ protected:
 	}
 
 private:
-	function<ks_raw_result(const ks_raw_result&)> m_fn_ex;  //在complete后被自动清除
+	std::function<ks_raw_result(const ks_raw_result&)> m_fn_ex;  //在complete后被自动清除
 	std::weak_ptr<ks_raw_future> m_prev_future_weak;    //在complete后被自动清除
 };
 
 
 class ks_raw_flatten_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_flatten_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, function<ks_raw_future_ptr(const ks_raw_result&)>&& afn_ex, const ks_async_context& living_context)
+	explicit ks_raw_flatten_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_future_ptr(const ks_raw_result&)>&& afn_ex, const ks_async_context& living_context)
 		: ks_raw_future_baseimp(mode, true, spec_apartment, living_context), m_afn_ex(afn_ex) {}
 
 	void connect(const ks_raw_future_ptr& prev_future) {
@@ -831,7 +829,7 @@ public:
 				if (this->do_check_cancel_locking(lock2))
 					else_error = prev_result.is_error() ? prev_result.to_error() : this->do_acquire_cancel_error_locking(ks_error::cancelled_error(), lock2);
 				else {
-					function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = std::move(m_afn_ex);
+					std::function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = std::move(m_afn_ex);
 					lock2.unlock();
 					extern_future = afn_ex(prev_result);
 					if (extern_future == nullptr)
@@ -912,7 +910,7 @@ protected:
 	}
 
 private:
-	function<ks_raw_future_ptr(const ks_raw_result&)> m_afn_ex;
+	std::function<ks_raw_future_ptr(const ks_raw_result&)> m_afn_ex;
 	std::shared_ptr<ks_raw_future> m_medium_future;
 	std::shared_ptr<ks_raw_future> m_extern_future;
 };
@@ -1144,13 +1142,13 @@ ks_raw_future_ptr ks_raw_future::__from_result(const ks_raw_result& result, ks_a
 }
 
 
-ks_raw_future_ptr ks_raw_future::post(function<ks_raw_result()>&& task_fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future::post(std::function<ks_raw_result()>&& task_fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto task_future = std::make_shared<ks_raw_task_future>(ks_raw_future_mode::TASK, apartment, std::move(task_fn), context, 0);
 	task_future->submit();
 	return task_future;
 }
 
-ks_raw_future_ptr ks_raw_future::post_delayed(function<ks_raw_result()>&& task_fn, const ks_async_context& context, ks_apartment* apartment, int64_t delay) {
+ks_raw_future_ptr ks_raw_future::post_delayed(std::function<ks_raw_result()>&& task_fn, const ks_async_context& context, ks_apartment* apartment, int64_t delay) {
 	auto task_future = std::make_shared<ks_raw_task_future>(ks_raw_future_mode::TASK_DELAYED, apartment, std::move(task_fn), context, delay);
 	task_future->submit();
 	return task_future;
@@ -1238,8 +1236,8 @@ ks_raw_promise_ptr ks_raw_promise::create(ks_apartment* apartment) {
 
 
 //ks_raw_future基础pipe方法实现
-ks_raw_future_ptr ks_raw_future_baseimp::then(function<ks_raw_result(const ks_raw_value &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
-	function<ks_raw_result(const ks_raw_result&)> fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
+ks_raw_future_ptr ks_raw_future_baseimp::then(std::function<ks_raw_result(const ks_raw_value &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+	std::function<ks_raw_result(const ks_raw_result&)> fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
 		if (input.is_value())
 			return fn(input.to_value());
 		else
@@ -1251,8 +1249,8 @@ ks_raw_future_ptr ks_raw_future_baseimp::then(function<ks_raw_result(const ks_ra
 	return pipe_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::trap(function<ks_raw_result(const ks_error &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
-	function<ks_raw_result(const ks_raw_result&)> fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
+ks_raw_future_ptr ks_raw_future_baseimp::trap(std::function<ks_raw_result(const ks_error &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+	std::function<ks_raw_result(const ks_raw_result&)> fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
 		if (input.is_error())
 			return fn(input.to_error());
 		else
@@ -1264,14 +1262,14 @@ ks_raw_future_ptr ks_raw_future_baseimp::trap(function<ks_raw_result(const ks_er
 	return pipe_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::transform(function<ks_raw_result(const ks_raw_result &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future_baseimp::transform(std::function<ks_raw_result(const ks_raw_result &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRANSFORM, apartment, std::move(fn), context, true);
 	pipe_future->connect(this->shared_from_this());
 	return pipe_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::flat_then(function<ks_raw_future_ptr(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
-	function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = [fn = std::move(fn), apartment](const ks_raw_result& input)->ks_raw_future_ptr {
+ks_raw_future_ptr ks_raw_future_baseimp::flat_then(std::function<ks_raw_future_ptr(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+	std::function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = [fn = std::move(fn), apartment](const ks_raw_result& input)->ks_raw_future_ptr {
 		if (!input.is_value())
 			return ks_raw_future::rejected(input.to_error(), apartment);
 
@@ -1285,8 +1283,8 @@ ks_raw_future_ptr ks_raw_future_baseimp::flat_then(function<ks_raw_future_ptr(co
 	return flatten_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::flat_trap(function<ks_raw_future_ptr(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
-	function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = [fn = std::move(fn), apartment](const ks_raw_result& input)->ks_raw_future_ptr {
+ks_raw_future_ptr ks_raw_future_baseimp::flat_trap(std::function<ks_raw_future_ptr(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+	std::function<ks_raw_future_ptr(const ks_raw_result&)> afn_ex = [fn = std::move(fn), apartment](const ks_raw_result& input)->ks_raw_future_ptr {
 		if (!input.is_error())
 			return ks_raw_future::resolved(input.to_value(), apartment);
 
@@ -1300,13 +1298,13 @@ ks_raw_future_ptr ks_raw_future_baseimp::flat_trap(function<ks_raw_future_ptr(co
 	return flatten_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::flat_transform(function<ks_raw_future_ptr(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future_baseimp::flat_transform(std::function<ks_raw_future_ptr(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto flatten_future = std::make_shared<ks_raw_flatten_future>(ks_raw_future_mode::FLATTEN_TRANSFORM, apartment, std::move(fn), context);
 	flatten_future->connect(this->shared_from_this());
 	return flatten_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::on_success(function<void(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future_baseimp::on_success(std::function<void(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
 		if (input.is_value())
 			fn(input.to_value());
@@ -1318,7 +1316,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_success(function<void(const ks_raw_v
 	return pipe_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::on_failure(function<void(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future_baseimp::on_failure(std::function<void(const ks_error&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
 		if (input.is_error())
 			fn(input.to_error());
@@ -1330,7 +1328,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_failure(function<void(const ks_error
 	return pipe_future;
 }
 
-ks_raw_future_ptr ks_raw_future_baseimp::on_completion(function<void(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
+ks_raw_future_ptr ks_raw_future_baseimp::on_completion(std::function<void(const ks_raw_result&)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
 	auto fn_ex = [fn = std::move(fn)](const ks_raw_result& input)->ks_raw_result {
 		fn(input);
 		return input;
