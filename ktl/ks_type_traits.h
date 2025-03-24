@@ -218,16 +218,19 @@ namespace std {
 
 namespace std { //helper funcs
 	template <class T> 
-	constexpr inline std::remove_cvref_t<T> dup(T&& arg) {
+	constexpr inline const std::remove_cvref_t<T>& take(const T& arg) {
+		return static_cast<const std::remove_cvref_t<T>&>(arg);
+	}
+	template <class T>
+	constexpr inline std::remove_cvref_t<T>&& take(T&& arg) {
 		return std::forward<T>(arg);
 	}
 
-	template <class T> 
+	template <class T>
 	constexpr inline void prune_if_rvalue(T&& arg) {
 		if (std::is_mutable_rvalue_reference_v<T&&>)
 			(void)(std::remove_cvref_t<T>(std::move(arg)));
 	}
-
 }
 
 

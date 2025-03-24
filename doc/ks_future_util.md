@@ -14,17 +14,17 @@ ks_future_util工具集
 ks_future<T> ks_future_util::resolved<T>(const T& value);
 ks_future<T> ks_future_util::rejected<T>(const ks_error& error);
 
-ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<T()>&& task_fn, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<T()> task_fn, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<ks_result<T>()> task_fn, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, const ks_async_context& context = {});
 
-ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<T()>&& task_fn, int64_t delay, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, int64_t delay, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, int64_t delay, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<T()> task_fn, int64_t delay, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<ks_result<T>()> task_fn, int64_t delay, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_delayed<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, int64_t delay, const ks_async_context& context = {});
 
-ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<T()>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
-ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<T()> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<ks_result<T>()> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+ks_future<T> ks_future_util::post_pending<T>(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
 ```
 #### 描述：包装ks_future<T>的resolved和post系列方法，直接以模板函数的形式提供能力。
 #### 特别说明：以resolved方法为例，`ks_future<int>::resolved(1)` 的等价形式为：`ks_future_util::resolved<int>(1)`。
@@ -65,7 +65,7 @@ ks_future<void> parallel(
 		const ks_async_context& context = {});
 ks_future<void> parallel_n(
 		ks_apartment* apartment, 
-    function<void()>&& fn, size_t n,
+    function<void()> fn, size_t n,
 		const ks_async_context& context = {});
 ```
 #### 描述：并行执行多个异步过程。
@@ -84,7 +84,7 @@ ks_future<void> sequential(
 		const ks_async_context& context = {});
 ks_future<void> sequential_n(
 		ks_apartment* apartment, 
-    function<void()>&& fn, size_t n,
+    function<void()> fn, size_t n,
 		const ks_async_context& context = {});
 ```
 #### 描述：串行执行多个异步过程。
@@ -101,7 +101,7 @@ ks_future<void> sequential_n(
 ```C++
 ks_future<void> repeat(
 		ks_apartment* apartment, 
-    function<ks_result<void>()>&& fn, 
+    function<ks_result<void>()> fn, 
 		const ks_async_context& context = {});
 ```
 #### 描述：重复执行一个异步过程，直至EOF或错误。
@@ -115,7 +115,7 @@ ks_future<void> repeat(
 ```C++
 ks_future<void> repeat_periodic(
 		ks_apartment* apartment, 
-    function<ks_result<void>()>&& fn, 
+    function<ks_result<void>()> fn, 
     int64_t first_delay, int64_t interval, 
 		const ks_async_context& context = {});
 ```
@@ -132,8 +132,8 @@ ks_future<void> repeat_periodic(
 ```C++
 template <class V>
 ks_future<void> ks_future_util::repeat_repetitive<V>(
-    ks_apartment* produce_apartment, function<ks_result<V>()>&& produce_fn,
-    ks_apartment* consume_apartment, function<ks_result<void>(const U&)>&& consume_fn,
+    ks_apartment* produce_apartment, function<ks_result<V>()> produce_fn,
+    ks_apartment* consume_apartment, function<ks_result<void>(const U&)> consume_fn,
     const ks_async_context& context = {});
 ```
 #### 描述：反复迭代一个异步的produce-consume过程，直至EOF或错误。

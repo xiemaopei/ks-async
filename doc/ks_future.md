@@ -58,9 +58,9 @@ static ks_future<T> rejected(ks_error error);
 
 
 ```C++
-static ks_future<T> post(ks_apartment* apartment, function<T()>&& task_fn, const ks_async_context& context = {});
-static ks_future<T> post(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, const ks_async_context& context = {});
-static ks_future<T> post(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, const ks_async_context& context = {});
+static ks_future<T> post(ks_apartment* apartment, function<T()> task_fn, const ks_async_context& context = {});
+static ks_future<T> post(ks_apartment* apartment, function<ks_result<T>()> task_fn, const ks_async_context& context = {});
+static ks_future<T> post(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, const ks_async_context& context = {});
 ```
 #### 描述：发起一个异步任务，此任务将在指定apartment套间中被执行。
 #### 参数：
@@ -71,9 +71,9 @@ static ks_future<T> post(ks_apartment* apartment, function<ks_result<T>(ks_cance
 <br>
 
 ```C++
-static ks_future<T> post_delayed(ks_apartment* apartment, function<T()>&& task_fn, int64_t delay, const ks_async_context& context = {});
-static ks_future<T> post_delayed(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, int64_t delay, const ks_async_context& context = {});
-static ks_future<T> post_delayed(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, int64_t delay, const ks_async_context& context = {});
+static ks_future<T> post_delayed(ks_apartment* apartment, function<T()> task_fn, int64_t delay, const ks_async_context& context = {});
+static ks_future<T> post_delayed(ks_apartment* apartment, function<ks_result<T>()> task_fn, int64_t delay, const ks_async_context& context = {});
+static ks_future<T> post_delayed(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, int64_t delay, const ks_async_context& context = {});
 ```
 #### 描述：发起一个延时的异步任务（相当于一个单次timer），此任务将在指定apartment套间中被执行。
 #### 参数：
@@ -85,9 +85,9 @@ static ks_future<T> post_delayed(ks_apartment* apartment, function<ks_result<T>(
 <br>
 
 ```C++
-static ks_future<T> post_pending(ks_apartment* apartment, function<T()>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
-static ks_future<T> post_pending(ks_apartment* apartment, function<ks_result<T>()>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
-static ks_future<T> post_pending(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)>&& task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+static ks_future<T> post_pending(ks_apartment* apartment, function<T()> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+static ks_future<T> post_pending(ks_apartment* apartment, function<ks_result<T>()> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
+static ks_future<T> post_pending(ks_apartment* apartment, function<ks_result<T>(ks_cancel_inspector*)> task_fn, ks_pending_trigger* trigger, const ks_async_context& context = {});
 ```
 #### 描述：发起一个挂起的异步任务（以避免异步任务被立即被调度执行），此任务将在指定apartment套间中被执行。
 #### 参数：
@@ -105,11 +105,11 @@ static ks_future<T> post_pending(ks_apartment* apartment, function<ks_result<T>(
 
 ```C++
 template <class R>
-ks_future<R> then<R>(ks_apartment* apartment, function<R(const T&)>&& fn, const ks_async_context& context = {});
+ks_future<R> then<R>(ks_apartment* apartment, function<R(const T&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> then<R>(ks_apartment* apartment, function<ks_result|ks_future<R>(const T&)>&& fn, const ks_async_context& context = {});
+ks_future<R> then<R>(ks_apartment* apartment, function<ks_result|ks_future<R>(const T&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> then<R>(ks_apartment* apartment, function<ks_result<R>(const T&, ks_cancel_inspector*)>&& fn, const ks_async_context& context = {});
+ks_future<R> then<R>(ks_apartment* apartment, function<ks_result<R>(const T&, ks_cancel_inspector*)> fn, const ks_async_context& context = {});
 ```
 #### 描述：仅当this成功时，执行fn函数进行值变换，返回新的R类型结果。此函数将在指定apartment套间中被执行。
 #### 模板参数：
@@ -124,11 +124,11 @@ ks_future<R> then<R>(ks_apartment* apartment, function<ks_result<R>(const T&, ks
 
 ```C++
 template <class R>
-ks_future<R> transform<R>(ks_apartment* apartment, function<R(const ks_result<T>&)>&& fn, const ks_async_context& context = {});
+ks_future<R> transform<R>(ks_apartment* apartment, function<R(const ks_result<T>&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> transform<R>(ks_apartment* apartment, function<ks_result<R>(const ks_result<T>&)>&& fn, const ks_async_context& context = {});
+ks_future<R> transform<R>(ks_apartment* apartment, function<ks_result<R>(const ks_result<T>&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> transform<R>(ks_apartment* apartment, function<ks_result<R>(const ks_result<T>&, ks_cancel_inspector*)>&& fn, const ks_async_context& context = {});
+ks_future<R> transform<R>(ks_apartment* apartment, function<ks_result<R>(const ks_result<T>&, ks_cancel_inspector*)> fn, const ks_async_context& context = {});
 ```
 #### 描述：当this完成时（无论成功/失败），执行fn函数进行值变换，返回新的R类型结果。此函数将在指定apartment套间中被执行。
 #### 模板参数：
@@ -145,9 +145,9 @@ ks_future<R> transform<R>(ks_apartment* apartment, function<ks_result<R>(const k
 
 ```C++
 template <class R>
-ks_future<R> flat_then<R>(ks_apartment* apartment, function<ks_future<R>(const T&)>&& fn, const ks_async_context& context = {});
+ks_future<R> flat_then<R>(ks_apartment* apartment, function<ks_future<R>(const T&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> flat_then<R>(ks_apartment* apartment, function<ks_future<R>(const T&, ks_cancel_inspector*)>&& fn, const ks_async_context& context = {});
+ks_future<R> flat_then<R>(ks_apartment* apartment, function<ks_future<R>(const T&, ks_cancel_inspector*)> fn, const ks_async_context& context = {});
 ```
 #### 描述：仅当this成功时，执行fn函数进行值变换，返回新的R类型结果。此函数将在指定apartment套间中被执行。
 #### 模板参数：
@@ -161,9 +161,9 @@ ks_future<R> flat_then<R>(ks_apartment* apartment, function<ks_future<R>(const T
 
 ```C++
 template <class R>
-ks_future<R> flat_transform<R>(ks_apartment* apartment, function<ks_future<R>(const ks_result<T>&)>&& fn, const ks_async_context& context = {});
+ks_future<R> flat_transform<R>(ks_apartment* apartment, function<ks_future<R>(const ks_result<T>&)> fn, const ks_async_context& context = {});
 template <class R>
-ks_future<R> flat_transform<R>(ks_apartment* apartment, function<ks_future<R>(const ks_result<T>&, ks_cancel_inspector*)>&& fn, const ks_async_context& context = {};
+ks_future<R> flat_transform<R>(ks_apartment* apartment, function<ks_future<R>(const ks_result<T>&, ks_cancel_inspector*)> fn, const ks_async_context& context = {};
 ```
 #### 描述：当this完成时（无论成功/失败），执行fn函数进行值变换，返回新的R类型结果。此函数将在指定apartment套间中被执行。
 #### 模板参数：
@@ -178,7 +178,7 @@ ks_future<R> flat_transform<R>(ks_apartment* apartment, function<ks_future<R>(co
 
 
 ```C++
-ks_future<T> on_success(ks_apartment* apartment, function<void(const T&)>&& fn, const ks_async_context& context = {});
+ks_future<T> on_success(ks_apartment* apartment, function<void(const T&)> fn, const ks_async_context& context = {});
 ```
 #### 描述：仅当this成功时，执行fn函数进行值处理，但新ks_future的仍保持原结果。此函数将在指定apartment套间中被执行。
 #### 参数：
@@ -189,7 +189,7 @@ ks_future<T> on_success(ks_apartment* apartment, function<void(const T&)>&& fn, 
 <br>
 
 ```C++
-ks_future<T> on_failure(ks_apartment* apartment, function<void(const ks_error&)>&& fn, const ks_async_context& context = {});
+ks_future<T> on_failure(ks_apartment* apartment, function<void(const ks_error&)> fn, const ks_async_context& context = {});
 ```
 #### 描述：仅当this失败时，执行fn函数进行错误处理，但新ks_future的仍保持原结果。此函数将在指定apartment套间中被执行。
 #### 参数：
@@ -200,7 +200,7 @@ ks_future<T> on_failure(ks_apartment* apartment, function<void(const ks_error&)>
 <br>
 
 ```C++
-ks_future<T> on_completion(ks_apartment* apartment, function<void(const ks_result<T>&)>&& fn, const ks_async_context& context = {});
+ks_future<T> on_completion(ks_apartment* apartment, function<void(const ks_result<T>&)> fn, const ks_async_context& context = {});
 ```
 #### 描述：当this完成时（无论成功/失败），执行fn函数进行结果处理，但新ks_future的仍保持原结果。此函数将在指定apartment套间中被执行。
 #### 参数：
@@ -224,7 +224,7 @@ ks_future<R> cast<R>();
 
 ```C++
 template <class R>
-ks_future<R> map<R>(function<R(const T&)>&& fn);
+ks_future<R> map<R>(function<R(const T&)> fn);
 ```
 #### 描述：将this的T类型的结果值经转换函数fn变换为R类型，得到一个新的ks_future<R>对象。
 #### 模板参数：

@@ -36,14 +36,8 @@ public:
 		return ret;
 	}
 
-	template <class T, class X = T>
+	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
 	ks_error with_payload(X&& payload) const {
-		ks_error ret = *this;
-		ret.m_payload_any = ks_any::of<T>(payload);
-		return ret;
-	}
-	template <class T, class X = T>
-	ks_error with_payload(T&& payload) const {
 		ks_error ret = *this;
 		ret.m_payload_any = ks_any::of<T>(std::forward<X>(payload));
 		return ret;

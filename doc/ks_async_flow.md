@@ -21,13 +21,13 @@ void set_j(size_t j);
 ```C++
 bool add_task<T>(
     const char* name_and_dependencies,
-    ks_apartment* apartment, std::function<T(const ks_async_flow& flow)>&& fn, const ks_async_context& context = {});
+    ks_apartment* apartment, std::function<T(const ks_async_flow& flow)> fn, const ks_async_context& context = {});
 bool add_task<T>(
     const char* name_and_dependencies,
-    ks_apartment* apartment, std::function<ks_result<T>(const ks_async_flow& flow)>&& fn, const ks_async_context& context = {});
+    ks_apartment* apartment, std::function<ks_result<T>(const ks_async_flow& flow)> fn, const ks_async_context& context = {});
 bool add_task<T>(
     const char* name_and_dependencies,
-    ks_apartment* apartment, std::function<ks_future<T>(const ks_async_flow& flow)>&& fn, const ks_async_context& context = {});
+    ks_apartment* apartment, std::function<ks_future<T>(const ks_async_flow& flow)> fn, const ks_async_context& context = {});
 ```
 #### 描述：添加任务。
 #### 特别说明：name_and_dependencies指定任务名称和前置依赖清单，其格式为："t5: t1, t2, t3, t4"。
@@ -36,11 +36,11 @@ bool add_task<T>(
 
 
 ```C++
-uint64_t add_flow_running_observer(ks_apartment* apartment, std::function<void(const ks_async_flow& flow)>&& fn, const ks_async_context& context);
-uint64_t add_flow_completed_observer(ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const ks_error& error)>&& fn, const ks_async_context& context);
+uint64_t add_flow_running_observer(ks_apartment* apartment, std::function<void(const ks_async_flow& flow)> fn, const ks_async_context& context);
+uint64_t add_flow_completed_observer(ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const ks_error& error)> fn, const ks_async_context& context);
 
-uint64_t add_task_running_observer(const char* task_name_pattern, ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const char* task_name)>&& fn, const ks_async_context& context);
-uint64_t add_task_completed_observer(const char* task_name_pattern, ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const char* task_name, const ks_error& error)>&& fn, const ks_async_context& context);
+uint64_t add_task_running_observer(const char* task_name_pattern, ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const char* task_name)> fn, const ks_async_context& context);
+uint64_t add_task_completed_observer(const char* task_name_pattern, ks_apartment* apartment, std::function<void(const ks_async_flow& flow, const char* task_name, const ks_error& error)> fn, const ks_async_context& context);
 
 bool remove_observer(uint64_t id);
 ```

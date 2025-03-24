@@ -93,7 +93,7 @@ bool is_stopping_or_stopped();
 
 
 ```C++
-uint64_t schedule(const function<void()>& fn, int priority);
+uint64_t schedule(function<void()> fn, int priority);
 ```
 #### 描述：调度一个异步过程。
 #### 参数：
@@ -104,7 +104,7 @@ uint64_t schedule(const function<void()>& fn, int priority);
 <br>
 
 ```C++
-uint64_t schedule_delayed(const function<void()>& fn, int priority, int64_t delay);
+uint64_t schedule_delayed(function<void()> fn, int priority, int64_t delay);
 ```
 #### 描述：调度一个异步**延时**过程。
 #### 参数：

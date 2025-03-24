@@ -482,7 +482,7 @@ void ks_notification_center::remove_observer(const void* observer) {
 	m_d->remove_observer(observer, "*");
 }
 
-void ks_notification_center::post_notification(const ks_notification& notification) {
+void ks_notification_center::post_notification_indirect(const ks_notification& notification) {
 	//将异步在master-sta（或background-sta）中执行，避免阻塞业务，但又可保持notification时序
 	ks_apartment* inter_apartment = ks_apartment::master_sta();
 	if (inter_apartment == nullptr)

@@ -91,7 +91,7 @@ ks_result<R> cast<R>();
 
 ```C++
 template <class R>
-ks_result<R> map<R>(function<R(const T&)>&& fn);
+ks_result<R> map<R>(function<R(const T&)> fn);
 ```
 #### 描述：将this的T类型的结果值经转换函数fn变换为R类型，得到一个新的ks_result<R>对象。
 #### 模板参数：

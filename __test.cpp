@@ -519,9 +519,9 @@ void test_notification_center() {
         g_exit_latch.count_down();
         });
 
-    ks_notification_center::default_center()->post_simple_notification(&sender, "a.x.y.z");
-    ks_notification_center::default_center()->post_notification<int>(&sender, "a.x.y.z", 1);
-    ks_notification_center::default_center()->post_notification<std::string>(&sender, "a.b.c", "xxx");
+    ks_notification_center::default_center()->post_notification(&sender, "a.x.y.z");
+    ks_notification_center::default_center()->post_notification_with_data<int>(&sender, "a.x.y.z", 1);
+    ks_notification_center::default_center()->post_notification_with_data<std::string>(&sender, "a.b.c", "xxx");
 
     g_exit_latch.wait();
     ks_notification_center::default_center()->remove_observer(&observer, "a.b.c.d");

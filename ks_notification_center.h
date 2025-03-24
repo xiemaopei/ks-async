@@ -41,16 +41,25 @@ public:
 	KS_ASYNC_API void remove_observer(const void* observer);
 
 public:
-	KS_ASYNC_API void post_notification(const ks_notification& notification);
-
-	template <class DATA_TYPE, class X = DATA_TYPE>
-	KS_ASYNC_INLINE_API void post_notification(const void* sender, const char* notification_name, X&& notification_data, const ks_async_context& notification_context = {}) {
-		return this->post_notification(ks_notification().set_sender(sender).set_notification_name(notification_name).set_notification_data<DATA_TYPE>(notification_data).set_notification_context(notification_context));
+	KS_ASYNC_INLINE_API void post_notification(const void* sender, const char* notification_name, const ks_async_context& notification_context = {}) {
+		return this->post_notification_indirect(ks_notification_builder()
+			.set_sender(sender)
+			.set_notification_name(notification_name)
+			.set_notification_context(notification_context)
+			.build());
 	}
 
-	KS_ASYNC_INLINE_API void post_simple_notification(const void* sender, const char* notification_name, const ks_async_context& notification_context = {}) {
-		return this->post_notification(ks_notification().set_sender(sender).set_notification_name(notification_name).set_notification_context(notification_context));
+	template <class DATA_TYPE, class X = DATA_TYPE, class _ = std::enable_if_t<std::is_convertible_v<X, DATA_TYPE>>>
+	KS_ASYNC_INLINE_API void post_notification_with_data(const void* sender, const char* notification_name, X&& notification_data, const ks_async_context& notification_context = {}) {
+		return this->post_notification_indirect(ks_notification_builder()
+			.set_sender(sender)
+			.set_notification_name(notification_name)
+			.set_notification_data<DATA_TYPE>(std::forward<X>(notification_data))
+			.set_notification_context(notification_context)
+			.build());
 	}
+
+	KS_ASYNC_API void post_notification_indirect(const ks_notification& notification);
 
 private:
 	class __ks_notification_center_data;

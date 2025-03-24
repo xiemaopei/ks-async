@@ -75,9 +75,9 @@ public:
 	}
 
 	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
-	void put_custom_value(const char* key, const X& value) const {
+	void put_custom_value(const char* key, X&& value) const {
 		ASSERT(this->is_valid());
-		return m_raw_flow->put_custom_value(key, ks_raw_value::of<T>(value));
+		return m_raw_flow->put_custom_value(key, ks_raw_value::of<T>(std::forward<X>(value)));
 	}
 
 public:
