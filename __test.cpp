@@ -228,9 +228,8 @@ void test_repeat() {
 
     std::atomic<int> sn = { 0 };
 
-    auto fn = [p_sn = &sn]() -> ks_result<void> {
-        int sn = ++(*p_sn);
-        if (sn <= 5) {
+    auto fn = [&sn]() -> ks_result<void> {
+        if (++sn <= 5) {
             std::cout << sn << " ";
             return nothing;
         }
@@ -255,9 +254,8 @@ void test_repeat_periodic() {
 
     std::atomic<int> sn = { 0 };
 
-    auto fn = [p_sn = &sn]() -> ks_result<void> {
-        int sn = ++(*p_sn);
-        if (sn <= 5) {
+    auto fn = [&sn]() -> ks_result<void> {
+        if (++sn <= 5) {
             std::cout << sn << " ";
             return nothing;
         }
@@ -266,7 +264,7 @@ void test_repeat_periodic() {
         }
     };
 
-    ks_future_util
+    auto f = ks_future_util
         ::repeat_periodic(ks_apartment::default_mta(), fn, 0, 100)
         .on_completion(ks_apartment::default_mta(), make_async_context(), [](const auto& result) {
             _output_result("completion: ", result);
@@ -282,18 +280,18 @@ void test_repeat_productive() {
 
     std::atomic<int> sn = { 0 };
 
-    auto produce_fn = [p_sn = &sn]() -> ks_result<int> {
-        int sn = ++(*p_sn);
-        if (sn <= 5) {
+    auto produce_fn = [&sn]() -> ks_result<int> {
+        int i = ++sn;
+        if (i <= 5) {
             std::cout << sn << " ";
-            return sn;
+            return i;
         }
         else {
             return ks_error::eof_error();
         }
     };
 
-    auto consume_fn = [](const int& sn) -> void {
+    auto consume_fn = [](const int& i) -> void {
         std::cout << "# ";
     };
 

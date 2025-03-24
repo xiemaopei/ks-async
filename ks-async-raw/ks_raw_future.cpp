@@ -17,6 +17,7 @@ limitations under the License.
 #include "ks_raw_promise.h"
 #include "ks_raw_internal_helper.h"
 #include "../ktl/ks_concurrency.h"
+#include "../ktl/ks_deferrer.h"
 #include <algorithm>
 #include <set>
 
@@ -66,6 +67,13 @@ protected:
 		, m_mode(mode), m_cancelable(cancelable), m_living_context_controller_available_v(living_context.__is_controller_present()) {}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
+
+	~ks_raw_future_baseimp() {
+		if (m_native_completed_cv_data != nullptr) {
+			if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
+				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+		}
+	}
 
 public:
 	virtual ks_raw_future_ptr then(function<ks_raw_result(const ks_raw_value&)>&& fn, const ks_async_context& context, ks_apartment* apartment) override;
@@ -185,20 +193,13 @@ protected:
 
 			++m_native_completed_cv_data->waiting_rc;
 
-			while (true) {
+			while (!m_completed_result.is_completed()) {
 				m_native_completed_cv_data->cv.wait(lock);
-
-				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
-					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
-					m_native_completed_cv_data->belong_pid = __native_get_current_pid();
-				}
-
-				if (m_completed_result.is_completed())
-					break;
-			};
+			}
 
 			if (--m_native_completed_cv_data->waiting_rc == 0) {
-				ASSERT(m_native_completed_cv_data->belong_pid == __native_get_current_pid());
+				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
+					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
 				m_native_completed_cv_data.reset();
 			}
 
@@ -438,6 +439,7 @@ protected:
 
 	//fork子进程中操作cv有几率死锁，故子进程中不要使用它！
 	//记录cv所属pid，保证进程内操作cv的一致性
+	//必要时会重建cv，避免子进程卡死（只是尽量容错而已，并不绝对安全，尤其是逻辑上的死等）
 	struct __NATIVE_COMPLETED_CV_DATA {
 		ks_condition_variable cv;
 		__native_pid_t belong_pid;

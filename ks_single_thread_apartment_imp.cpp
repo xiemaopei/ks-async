@@ -276,6 +276,16 @@ void ks_single_thread_apartment_imp::_single_thread_proc(ks_single_thread_apartm
 			d->atforking_done_cv.wait(lock);
 #endif
 
+#if __KS_APARTMENT_ATFORK_ENABLED
+		++d->working_rc;
+
+		ks_deferrer defer_dec_working_rc([&d, &lock]() {
+			ASSERT(lock.owns_lock());
+			if (--d->working_rc == 0)
+				d->working_done_cv.notify_all();
+		});
+#endif
+
 		//try next now_fn
 		if (true) {
 			auto* now_fn_queue_sel = !d->now_fn_queue_prior.empty() ? &d->now_fn_queue_prior : &d->now_fn_queue_normal;
@@ -291,18 +301,10 @@ void ks_single_thread_apartment_imp::_single_thread_proc(ks_single_thread_apartm
 				_FN_ITEM now_fn_item = std::move(now_fn_queue_sel->front());
 				now_fn_queue_sel->pop_front();
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-				++d->working_rc;
-#endif
-
 				lock.unlock();
 				now_fn_item.fn(); //invoke fn, maybe except => fault
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-				lock.lock();
-				if (--d->working_rc == 0)
-					d->working_done_cv.notify_all();
-#endif
+				lock.lock(); //for working_rc
 				continue;
 			}
 		}
@@ -408,6 +410,8 @@ void ks_single_thread_apartment_imp::atfork_prepare() {
 	std::unique_lock<ks_mutex> lock(m_d->mutex);
 	m_d->atforking_flag = true;
 
+	m_d->any_fn_queue_cv.notify_all();
+
 	while (m_d->working_rc != 0)
 		m_d->working_done_cv.wait(lock);
 
@@ -477,6 +481,10 @@ bool ks_single_thread_apartment_imp::__do_run_nested_pump_loop_for_extern_waitin
 			break; //atforking, broken
 #endif
 
+#if __KS_APARTMENT_ATFORK_ENABLED
+		ASSERT(d->working_rc != 0);
+#endif
+
 		//try next now_fn
 		if (true) {
 			auto* now_fn_queue_sel = !d->now_fn_queue_prior.empty() ? &d->now_fn_queue_prior : &d->now_fn_queue_normal;
@@ -493,18 +501,10 @@ bool ks_single_thread_apartment_imp::__do_run_nested_pump_loop_for_extern_waitin
 				_FN_ITEM now_fn_item = std::move(now_fn_queue_sel->front());
 				now_fn_queue_sel->pop_front();
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-				++d->working_rc;
-#endif
-
 				lock.unlock();
 				now_fn_item.fn(); //invoke fn, maybe except => fault
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-				lock.lock();
-				if (--d->working_rc == 0)
-					d->working_done_cv.notify_all();
-#endif
+				lock.lock(); //for working_rc
 				continue;
 			}
 		}

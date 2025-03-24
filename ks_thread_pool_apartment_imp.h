@@ -106,7 +106,6 @@ private:
 		std::shared_ptr< _DELAYING_THREAD_ITEM> delaying_trigger_thread_opt;
 		size_t living_any_thread_total = 0; //now和delaying存活线程的总个数
 		size_t max_thread_count = 0; //const-like
-		size_t busy_thread_count = 0;
 		size_t busy_thread_count_for_idle = 0;
 
 		std::deque<_FN_ITEM> delaying_fn_queue;

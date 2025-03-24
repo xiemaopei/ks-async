@@ -22,6 +22,7 @@ limitations under the License.
 void __forcelink_to_ks_thread_pool_apartment_imp_cpp() {}
 
 static thread_local uint64_t tls_current_now_thread_sn = 0;
+static bool tls_current_now_thread_busy_for_idle_flag = false;
 
 
 ks_thread_pool_apartment_imp::ks_thread_pool_apartment_imp(const char* name, size_t max_thread_count, uint flags) : m_d(std::make_shared<_THREAD_POOL_APARTMENT_DATA>()) {
@@ -275,6 +276,16 @@ void ks_thread_pool_apartment_imp::_now_thread_proc(ks_thread_pool_apartment_imp
 		}
 #endif
 
+#if __KS_APARTMENT_ATFORK_ENABLED
+		++d->working_rc;
+
+		ks_deferrer defer_dec_working_rc([&d, &lock]() {
+			ASSERT(lock.owns_lock());
+			if (--d->working_rc == 0)
+				d->working_done_cv.notify_all();
+		});
+#endif
+
 		//try next now_fn
 		auto* now_fn_queue_sel = !d->now_fn_queue_prior.empty() ? &d->now_fn_queue_prior : &d->now_fn_queue_normal;
 		if (now_fn_queue_sel->empty()) {
@@ -292,28 +303,24 @@ void ks_thread_pool_apartment_imp::_now_thread_proc(ks_thread_pool_apartment_imp
 			_FN_ITEM now_fn_item = std::move(now_fn_queue_sel->front());
 			now_fn_queue_sel->pop_front();
 
-			bool is_from_queue_idle = now_fn_queue_sel == &d->now_fn_queue_idle;
-
-			++d->busy_thread_count;
-			if (is_from_queue_idle)
+			const bool busy_for_idle_flag = (now_fn_queue_sel == &d->now_fn_queue_idle);
+			if (busy_for_idle_flag) {
 				++d->busy_thread_count_for_idle;
+				tls_current_now_thread_busy_for_idle_flag = true;
+			}
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-			++d->working_rc;
-#endif
+			ks_deferrer defer_dec_busy_thread_count([&d, busy_for_idle_flag, &lock]() {
+				ASSERT(lock.owns_lock());
+				if (busy_for_idle_flag) {
+					--d->busy_thread_count_for_idle;
+					tls_current_now_thread_busy_for_idle_flag = false;
+				}
+			});
 
 			lock.unlock();
 			now_fn_item.fn();
 
-			lock.lock();
-			--d->busy_thread_count;
-			if (is_from_queue_idle)
-				--d->busy_thread_count_for_idle;
-
-#if __KS_APARTMENT_ATFORK_ENABLED
-			if (--d->working_rc == 0)
-				d->working_done_cv.notify_all();
-#endif
+			lock.lock(); //for working_rc and busy_thread_count
 			continue;
 		}
 		else {
@@ -469,6 +476,9 @@ void ks_thread_pool_apartment_imp::atfork_prepare() {
 	std::unique_lock<ks_mutex> lock(m_d->mutex);
 	m_d->atforking_flag = true;
 
+	m_d->now_fn_queue_cv.notify_all();
+	m_d->delaying_fn_queue_cv.notify_all();
+
 	while (m_d->working_rc != 0)
 		m_d->working_done_cv.wait(lock);
 
@@ -495,14 +505,6 @@ void ks_thread_pool_apartment_imp::atfork_child() {
 
 	const bool atfork_calling_in_my_thread_flag = (ks_apartment::current_thread_apartment() == this);
 	_UNUSED(atfork_calling_in_my_thread_flag); //即使在该mta某个线程内调用fork，也要照样lock，因为至少还有delaying线程呢
-
-	//重建cv（析构有几率卡死，故直接重构造）
-	//子进程中此时此刻，当前线程正执行至此，而其他线程都消失了，就算正在wait也不用处理后事了
-	::new (&m_d->now_fn_queue_cv) ks_condition_variable();
-	::new (&m_d->delaying_fn_queue_cv) ks_condition_variable();
-	::new (&m_d->working_done_cv) ks_condition_variable();
-	::new (&m_d->atforking_done_cv) ks_condition_variable();
-	::new (&m_d->stopped_state_cv) ks_condition_variable();
 
 	//重建线程
 	if (!m_d->thread_pool.empty()) {
@@ -548,6 +550,10 @@ bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(
 			break; //atforking, broken
 #endif
 
+#if __KS_APARTMENT_ATFORK_ENABLED
+		ASSERT(d->working_rc != 0);
+#endif
+
 		//try next now_fn
 		auto* now_fn_queue_sel = !d->now_fn_queue_prior.empty() ? &d->now_fn_queue_prior : &d->now_fn_queue_normal;
 		if (now_fn_queue_sel->empty()) {
@@ -565,28 +571,24 @@ bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(
 			_FN_ITEM now_fn_item = std::move(now_fn_queue_sel->front());
 			now_fn_queue_sel->pop_front();
 
-			bool is_from_queue_idle = now_fn_queue_sel == &d->now_fn_queue_idle;
-
-			++d->busy_thread_count;
-			if (is_from_queue_idle) 
+			const bool busy_for_idle_flag_promoting = (now_fn_queue_sel == &d->now_fn_queue_idle) && !tls_current_now_thread_busy_for_idle_flag;
+			if (busy_for_idle_flag_promoting) {
 				++d->busy_thread_count_for_idle;
+				tls_current_now_thread_busy_for_idle_flag = true;
+			}
 
-#if __KS_APARTMENT_ATFORK_ENABLED
-			++d->working_rc;
-#endif
+			ks_deferrer defer_dec_busy_thread_count([&d, busy_for_idle_flag_promoting, &lock]() {
+				ASSERT(lock.owns_lock());
+				if (busy_for_idle_flag_promoting) {
+					--d->busy_thread_count_for_idle;
+					tls_current_now_thread_busy_for_idle_flag = false;
+				}
+			});
 
 			lock.unlock();
 			now_fn_item.fn();
 
-			lock.lock();
-			--d->busy_thread_count;
-			if (is_from_queue_idle)
-				--d->busy_thread_count_for_idle;
-
-#if __KS_APARTMENT_ATFORK_ENABLED
-			if (--d->working_rc == 0)
-				d->working_done_cv.notify_all();
-#endif
+			lock.lock(); //for working_rc and busy_thread_count
 			continue;
 		}
 		else {
