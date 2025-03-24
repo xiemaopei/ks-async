@@ -55,7 +55,7 @@ public:
 
 public:
 	KS_ASYNC_API ks_raw_value get_value(const char* key);
-	KS_ASYNC_API void set_custom_value(const char* key, const ks_raw_value& value);
+	KS_ASYNC_API void put_custom_value(const char* key, const ks_raw_value& value);
 
 public:
 	KS_ASYNC_API bool start();

@@ -335,7 +335,7 @@ ks_raw_value ks_raw_async_flow::get_value(const char* key) {
 	return it->second;
 }
 
-void ks_raw_async_flow::set_custom_value(const char* key, const ks_raw_value& value) {
+void ks_raw_async_flow::put_custom_value(const char* key, const ks_raw_value& value) {
 	std::unique_lock<ks_mutex> lock(m_mutex);
 	m_raw_value_map[key] = value;
 }

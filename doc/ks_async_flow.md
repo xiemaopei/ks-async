@@ -57,10 +57,10 @@ T get_value<T>(const char* key);
 <br>
 
 ```C++
-void set_custom_value<T>(const char* key, const T& value);
+void put_custom_value<T>(const char* key, const T& value);
 ```
 #### 描述：根据自定义的key设置value。
-#### 特别说明：仅用于设置自定义键值对。反之，各task的结果会被自动记录，无需手工设置。
+#### 特别说明：仅用于设置自定义键值对。相反的，各task的结果值会自动被记录，无需手工设置。
 <br>
 <br>
 
