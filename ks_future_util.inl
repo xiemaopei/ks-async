@@ -285,8 +285,6 @@ public: //sequential, sequential_n
 		ks_apartment* apartment, const FNS& fns,
 		const ks_async_context& context = {}) {
 
-		using FN = typename FNS::value_type;
-
 		if (fns.empty()) {
 			return ks_future<void>::resolved(nothing);
 		}
@@ -296,7 +294,7 @@ public: //sequential, sequential_n
 		}
 		else {
 			struct __sequential_data_t {
-				std::vector<FN> fns;
+				std::vector<typename FNS::value_type> fns;
 				size_t index = 0;
 				ks_error last_error = ks_error::unexpected_error();
 			};
@@ -306,17 +304,11 @@ public: //sequential, sequential_n
 
 			const auto fn_wrapper = [apartment, data]() -> ks_future<void> {
 				if (data->index < data->fns.size()) {
-					const auto& fn = data->fns[data->index];
-					data->index++;
-					return ks_future<void>
-						::post(
-							apartment, 
-							fn,
-							make_async_context().set_priority(0x10000))
-						.on_failure(
-							apartment,
-							[data](const ks_error& error) { data->last_error = error; },
-							make_async_context().set_priority(0x10000));
+					const auto& fn = data->fns[data->index++];
+					return __wrap_async_fn_0<void>(fn)().on_failure(
+						apartment,
+						[data](const ks_error& error) { data->last_error = error; },
+						make_async_context().set_priority(0x10000));
 				}
 				else {
 					return ks_future<void>::rejected(ks_error::eof_error());
@@ -368,12 +360,7 @@ public: //sequential, sequential_n
 			auto fn_wrapper = [apartment, data]() -> ks_future<void> {
 				if (data->index < data->n) {
 					data->index++;
-					return ks_future<void>
-						::post(
-							apartment, 
-							data->fn, 
-							make_async_context().set_priority(0x10000))
-						.on_failure(
+					return __wrap_async_fn_0<void>(data->fn)().on_failure(
 							apartment,
 							[data](const ks_error& error) { data->last_error = error; },
 							make_async_context().set_priority(0x10000));
@@ -399,7 +386,6 @@ public: //sequential, sequential_n
 
 public: //repeat, repeat_periodic, repeat_productive
 	template <class FN, class _ = std::enable_if_t<
-		std::is_convertible_v<FN, std::function<void()>> ||
 		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
 		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
 	static ks_future<void> repeat(
@@ -414,7 +400,6 @@ public: //repeat, repeat_periodic, repeat_productive
 	}
 
 	template <class FN, class _ = std::enable_if_t<
-		std::is_convertible_v<FN, std::function<void()>> ||
 		std::is_convertible_v<FN, std::function<ks_result<void>()>> ||
 		std::is_convertible_v<FN, std::function<ks_future<void>()>>>>
 	static ks_future<void> repeat_periodic(
@@ -458,7 +443,6 @@ public: //repeat, repeat_periodic, repeat_productive
 
 	template <class V, class PRODUCE_FN, class CONSUME_FN, 
 		class __PRODUCE_FN_VERIFY__ = std::enable_if_t<
-			std::is_convertible_v<PRODUCE_FN, std::function<V()>> ||
 			std::is_convertible_v<PRODUCE_FN, std::function<ks_result<V>()>> ||
 			std::is_convertible_v<PRODUCE_FN, std::function<ks_future<V>()>>>,
 		class __CONSUME_FN_VERIFY__ = std::enable_if_t <
