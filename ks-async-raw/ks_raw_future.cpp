@@ -72,7 +72,7 @@ protected:
 		if (m_native_completed_cv_data != nullptr) {
 			ASSERT(false);
 			if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
-				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就析构了
+				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就会析构了
 		}
 	}
 
@@ -193,7 +193,7 @@ protected:
 			}
 			else if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
 				m_native_completed_cv_data->belong_pid = __native_get_current_pid();
-				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，子进程中
 			}
 
 			++m_native_completed_cv_data->waiting_rc;
@@ -204,7 +204,7 @@ protected:
 
 			if (--m_native_completed_cv_data->waiting_rc == 0) {
 				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
-					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就析构了
+					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就会析构了
 				m_native_completed_cv_data.reset();
 			}
 
