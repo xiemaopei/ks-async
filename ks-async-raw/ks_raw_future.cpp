@@ -70,8 +70,9 @@ protected:
 
 	~ks_raw_future_baseimp() {
 		if (m_native_completed_cv_data != nullptr) {
+			ASSERT(false);
 			if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
-				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就析构了
 		}
 	}
 
@@ -188,13 +189,10 @@ protected:
 			if (m_native_completed_cv_data == nullptr) {
 				m_native_completed_cv_data = std::make_unique<__NATIVE_COMPLETED_CV_DATA>();
 				m_native_completed_cv_data->belong_pid = __native_get_current_pid();
-				m_native_completed_cv_data->waiting_rc = 0;
 			}
-			else {
-				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
-					m_native_completed_cv_data->belong_pid = __native_get_current_pid();
-					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
-				}
+			else if (m_native_completed_cv_data->belong_pid != __native_get_current_pid()) {
+				m_native_completed_cv_data->belong_pid = __native_get_current_pid();
+				::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
 			}
 
 			++m_native_completed_cv_data->waiting_rc;
@@ -205,7 +203,7 @@ protected:
 
 			if (--m_native_completed_cv_data->waiting_rc == 0) {
 				if (m_native_completed_cv_data->belong_pid != __native_get_current_pid())
-					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv
+					::new (&m_native_completed_cv_data->cv) ks_condition_variable(); //重建cv，马上就析构了
 				m_native_completed_cv_data.reset();
 			}
 
@@ -302,7 +300,7 @@ protected:
 		m_completed_prefer_apartment = prefer_apartment;
 
 		if (m_native_completed_cv_data != nullptr && m_native_completed_cv_data->belong_pid == __native_get_current_pid()) {
-			m_native_completed_cv_data->cv.notify_all();
+			m_native_completed_cv_data->cv.notify_all(); //子进程不要notify，会有几率卡死！（若子进程内执行wait，会更新子进程内记录的belong_pid的）
 		}
 
 		for (ks_apartment* apartment : m_waiting_for_me_apartment_set) {
@@ -447,9 +445,9 @@ protected:
 	//记录cv所属pid，保证进程内操作cv的一致性
 	//必要时会重建cv，避免子进程卡死（只是尽量容错而已，并不绝对安全，尤其是逻辑上的死等）
 	struct __NATIVE_COMPLETED_CV_DATA {
-		ks_condition_variable cv;
 		__native_pid_t belong_pid;
-		int waiting_rc;
+		ks_condition_variable cv{};
+		int waiting_rc = 0;
 	};
 	std::unique_ptr<__NATIVE_COMPLETED_CV_DATA> m_native_completed_cv_data = nullptr;
 
