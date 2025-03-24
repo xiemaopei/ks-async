@@ -23,11 +23,11 @@ limitations under the License.
 
 #if !defined(KS_ASYNC_API)
 #   ifdef KS_ASYNC_EXPORTS
-#      define KS_ASYNC_API _DECL_EXPORT
-#	    define KS_ASYNC_INLINE_API
+#       define KS_ASYNC_API _DECL_EXPORT
+#       define KS_ASYNC_INLINE_API
 #   else
 #       define KS_ASYNC_API _DECL_IMPORT
-#	    define KS_ASYNC_INLINE_API
+#       define KS_ASYNC_INLINE_API
 #   endif
 #endif
 

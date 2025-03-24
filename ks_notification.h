@@ -28,9 +28,9 @@ class ks_notification_builder;
 
 class ks_notification {
 public:
-	ks_notification() = delete;
 	ks_notification(const ks_notification&) = default;
 	ks_notification& operator=(const ks_notification&) = default;
+
 	ks_notification(ks_notification&&) noexcept = default;
 	ks_notification& operator=(ks_notification&& r) noexcept = default; 
 
@@ -59,6 +59,8 @@ private:
 		ks_any notification_data_any;
 		ks_async_context notification_context;
 	};
+
+	explicit ks_notification() = delete;
 
 	explicit ks_notification(std::shared_ptr<__NOTIFICATION_DATA>&& data_ptr)
 		: m_data_ptr(std::move(data_ptr)) {}
