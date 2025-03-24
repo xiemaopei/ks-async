@@ -22,45 +22,8 @@ limitations under the License.
 #include <string>
 #include <memory>
 
-class ks_notification_center;
 class ks_notification;
-
-
-class ks_notification_center {
-public:
-	KS_ASYNC_API explicit ks_notification_center(const char* center_name);
-	_DISABLE_COPY_CONSTRUCTOR(ks_notification_center);
-
-	KS_ASYNC_API static ks_notification_center* default_center(); //default-center singleton
-
-public:
-	KS_ASYNC_API const char* name();
-
-public:
-	KS_ASYNC_API void add_observer(
-		const void* observer, const char* notification_name_pattern, 
-		ks_apartment* apartment, std::function<void(const ks_notification&)> fn, const ks_async_context& context = {});
-	KS_ASYNC_INLINE_API void add_observer(
-		const void* observer, const char* notification_name_pattern,
-		ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_notification&)> fn) { //only for compat
-		return this->add_observer(observer, notification_name_pattern, apartment, std::move(fn), context);
-	}
-
-	KS_ASYNC_API void remove_observer(const void* observer, const char* notification_name_pattern);
-	KS_ASYNC_API void remove_observer(const void* observer);
-
-public:
-	KS_ASYNC_API void post_notification(const ks_notification& notification);
-
-	template <class DATA_TYPE>
-	KS_ASYNC_INLINE_API void post_notification(const void* sender, const char* notification_name, DATA_TYPE&& notification_data, const ks_async_context& notification_context = {}) {
-		return this->post_notification(ks_notification::of<DATA_TYPE>(sender, notification_name, std::forward<DATA_TYPE>(notification_data), notification_context));
-	}
-
-private:
-	class __ks_notification_center_data;
-	std::shared_ptr<__ks_notification_center_data> m_d;
-};
+class ks_notification_center;
 
 
 class ks_notification {
@@ -101,4 +64,41 @@ private:
 	};
 
 	std::shared_ptr<_NOTIFICATION_PROPS> m_props;
+};
+
+
+class ks_notification_center {
+public:
+	KS_ASYNC_API explicit ks_notification_center(const char* center_name);
+	_DISABLE_COPY_CONSTRUCTOR(ks_notification_center);
+
+	KS_ASYNC_API static ks_notification_center* default_center(); //default-center singleton
+
+public:
+	KS_ASYNC_API const char* name();
+
+public:
+	KS_ASYNC_API void add_observer(
+		const void* observer, const char* notification_name_pattern, 
+		ks_apartment* apartment, std::function<void(const ks_notification&)> fn, const ks_async_context& context = {});
+	KS_ASYNC_INLINE_API void add_observer(
+		const void* observer, const char* notification_name_pattern,
+		ks_apartment* apartment, const ks_async_context& context, std::function<void(const ks_notification&)> fn) { //only for compat
+		return this->add_observer(observer, notification_name_pattern, apartment, std::move(fn), context);
+	}
+
+	KS_ASYNC_API void remove_observer(const void* observer, const char* notification_name_pattern);
+	KS_ASYNC_API void remove_observer(const void* observer);
+
+public:
+	KS_ASYNC_API void post_notification(const ks_notification& notification);
+
+	template <class DATA_TYPE>
+	KS_ASYNC_INLINE_API void post_notification(const void* sender, const char* notification_name, DATA_TYPE&& notification_data, const ks_async_context& notification_context = {}) {
+		return this->post_notification(ks_notification::of(sender, notification_name, std::forward<DATA_TYPE>(notification_data), notification_context));
+	}
+
+private:
+	class __ks_notification_center_data;
+	std::shared_ptr<__ks_notification_center_data> m_d;
 };
