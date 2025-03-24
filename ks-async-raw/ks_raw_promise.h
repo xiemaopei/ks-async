@@ -24,7 +24,7 @@ __KS_ASYNC_RAW_BEGIN
 class ks_raw_promise;
 using ks_raw_promise_ptr = std::shared_ptr<ks_raw_promise>;
 
-class ks_raw_promise {
+_ABSTRACT class ks_raw_promise {
 protected:
 	ks_raw_promise() = default;
 	virtual ~ks_raw_promise() = default;  //protected

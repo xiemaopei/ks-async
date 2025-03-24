@@ -20,7 +20,7 @@ limitations under the License.
 #include "ktl/ks_concurrency.h"
 
 
-class ks_apartment {
+_ABSTRACT class ks_apartment {
 protected:
 	KS_ASYNC_API ks_apartment() = default;
 	KS_ASYNC_API virtual ~ks_apartment() = default;  //protected

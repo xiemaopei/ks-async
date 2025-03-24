@@ -32,6 +32,7 @@ public:
 public:
 	static ks_error of(HRESULT code) {
 		ks_error ret;
+		ASSERT(code != 0);
 		ret.m_code = code;
 		return ret;
 	}
@@ -39,6 +40,7 @@ public:
 	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
 	static ks_error __of(HRESULT code, X&& payload) {
 		ks_error ret;
+		ASSERT(code != 0);
 		ret.m_code = code;
 		ret.m_payload_any = ks_any::of<T>(std::forward<X>(payload));
 		return ret;
@@ -48,6 +50,7 @@ public:
 	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
 	ks_error with_payload(X&& payload) const {
 		ks_error ret = *this;
+		ASSERT(ret.get_code() != 0);
 		ret.m_payload_any = ks_any::of<T>(std::forward<X>(payload));
 		return ret;
 	}

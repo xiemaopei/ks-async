@@ -19,11 +19,8 @@ template <class T> class ks_future;
 template <class T> class ks_promise;
 
 
-class ks_future_util { //as namespace
+_AS_NAMESPACE class ks_future_util { //as namespace
 private:
-	ks_future_util() = delete;
-	_DISABLE_COPY_CONSTRUCTOR(ks_future_util);
-
 	using ks_raw_future = __ks_async_raw::ks_raw_future;
 	using ks_raw_future_ptr = __ks_async_raw::ks_raw_future_ptr;
 	using ks_raw_promise = __ks_async_raw::ks_raw_promise;
@@ -645,4 +642,8 @@ private:
 		else
 			return error;
 	}
+
+private:
+	ks_future_util() = delete;
+	_DISABLE_COPY_CONSTRUCTOR(ks_future_util);
 };

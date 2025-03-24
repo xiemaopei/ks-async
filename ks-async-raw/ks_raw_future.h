@@ -26,7 +26,7 @@ __KS_ASYNC_RAW_BEGIN
 class ks_raw_future;
 using ks_raw_future_ptr = std::shared_ptr<ks_raw_future>;
 
-class ks_raw_future {
+_ABSTRACT class ks_raw_future {
 protected:
 	ks_raw_future() = default;
 	virtual ~ks_raw_future() = default;  //protected
