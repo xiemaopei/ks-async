@@ -317,8 +317,6 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		m_intermediate_data_ptr->m_pending_flag_v = false;
-
 		if (m_intermediate_data_ptr->m_completion_cv_waiting_rc != 0 && m_intermediate_data_ptr->m_completion_cv_belong_pid == __native_get_current_pid()) {
 			m_intermediate_data_ptr->m_completion_cv.notify_all(); //子进程不要notify，会有几率卡死！（若子进程内执行wait，会更新子进程内记录的belong_pid的）
 		}
@@ -431,8 +429,6 @@ protected:
 					return;
 
 				m_intermediate_data_ptr->m_timeout_schedule_id = 0; //reset
-				if (!m_intermediate_data_ptr->m_pending_flag_v || m_completed_result.is_completed())
-					return;
 
 				lock2.unlock();
 				this->do_try_cancel(error, backtrack); //will become timeout
@@ -488,7 +484,6 @@ protected:
 		std::set<ks_apartment*> m_waiting_for_me_apartment_set{};
 
 		ks_error m_cancel_error{};
-		volatile bool m_pending_flag_v = true;
 	};
 
 	std::shared_ptr<__INTERMEDIATE_DATA> m_intermediate_data_ptr; //completed后被清除
@@ -584,7 +579,6 @@ public:
 			ASSERT(m_intermediate_data_ptr != nullptr);
 			ASSERT(m_extra_intermediate_data_ptr != nullptr);
 
-			m_intermediate_data_ptr->m_pending_flag_v = false;
 			m_extra_intermediate_data_ptr->m_pending_schedule_id = 0; //这个变量第一时间被清0
 
 			ks_raw_running_future_rtstt running_future_rtstt;
@@ -766,8 +760,6 @@ protected:
 			ASSERT(m_intermediate_data_ptr != nullptr);
 			ASSERT(m_extra_intermediate_data_ptr != nullptr);
 
-			m_intermediate_data_ptr->m_pending_flag_v = false;
-
 			ks_raw_running_future_rtstt running_future_rtstt;
 			ks_raw_living_context_rtstt living_context_rtstt;
 			running_future_rtstt.apply(this, &tls_current_thread_running_future);
@@ -882,8 +874,6 @@ public:
 			std::unique_lock<ks_mutex> lock2(m_mutex);
 			if (m_completed_result.is_completed()) 
 				return;
-
-			m_intermediate_data_ptr->m_pending_flag_v = false;
 
 			ks_raw_running_future_rtstt running_future_rtstt;
 			ks_raw_living_context_rtstt living_context_rtstt;
