@@ -18,7 +18,6 @@ limitations under the License.
 #include "ks_type_traits.h"
 #include <atomic>
 #include <functional>
-#include <stdlib.h>
 #include <cstring>
 #include <string.h>
 
@@ -120,7 +119,7 @@ private:
 		ASSERT(!this->has_value());
 
 		constexpr size_t x_offset = (sizeof(_DATA_HEADER) + alignof(XT) - 1) / alignof(XT) * alignof(XT);
-		_DATA_HEADER* data_p = (_DATA_HEADER*)malloc(x_offset + sizeof(XT));
+		_DATA_HEADER* data_p = (_DATA_HEADER*)(new unsigned char[x_offset + sizeof(XT)]);
 		::new ((void*)data_p) _DATA_HEADER();
 		data_p->x_offset = int(x_offset);
 		data_p->x_dtor = [](void* px) { ((XT*)px)->~XT(); };
@@ -155,7 +154,7 @@ public:
 			if (--m_data_p->ref_count == 0) {
 				m_data_p->x_dtor(m_data_p->x_addr());
 				m_data_p->~_DATA_HEADER();
-				free((void*)m_data_p);
+				delete[] (unsigned char*)m_data_p;
 			}
 		}
 

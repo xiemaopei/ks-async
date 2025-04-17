@@ -63,7 +63,7 @@ class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_fr
 protected:
 	explicit ks_raw_future_baseimp(ks_raw_future_mode mode, bool cancelable, ks_apartment* spec_apartment, const ks_async_context& living_context)
 		: m_mode(mode), m_cancelable(cancelable), m_spec_apartment(spec_apartment) {
-		m_intermediate_data_ptr = std::make_shared<__INTERMEDIATE_DATA>();
+		m_intermediate_data_ptr.create_instance();
 		m_intermediate_data_ptr->m_living_context = living_context;
 		m_intermediate_data_ptr->m_create_time = std::chrono::steady_clock::now();
 	}
@@ -212,8 +212,11 @@ protected:
 			}
 
 			if (--intermediate_data_ptr->m_completion_cv_waiting_rc == 0) {
-				if (intermediate_data_ptr->m_completion_cv_belong_pid != __native_get_current_pid())
+				if (intermediate_data_ptr->m_completion_cv_belong_pid != __native_get_current_pid()) {
+					ASSERT(intermediate_data_ptr->m_completion_cv_belong_pid != __native_pid_none);
+					intermediate_data_ptr->m_completion_cv_belong_pid = __native_get_current_pid();
 					::new (&intermediate_data_ptr->m_completion_cv) ks_condition_variable(); //重建cv，马上就要析构了
+				}
 			}
 
 			return true;
@@ -474,6 +477,10 @@ protected:
 		std::chrono::steady_clock::time_point m_timeout_time = {};
 		uint64_t m_timeout_schedule_id = 0;
 
+		ks_error m_cancel_error{};
+
+		std::set<ks_apartment*> m_waiting_for_me_apartment_set{};
+
 		//fork子进程中操作cv有几率死锁，故子进程中不要使用它！
 		//记录cv所属pid，保证进程内操作cv的一致性
 		//必要时会重建cv，避免子进程卡死（只是尽量容错而已，并不绝对安全，尤其是逻辑上的死等）
@@ -481,12 +488,10 @@ protected:
 		__native_pid_t m_completion_cv_belong_pid = __native_pid_none;
 		int m_completion_cv_waiting_rc = 0;
 
-		std::set<ks_apartment*> m_waiting_for_me_apartment_set{};
-
-		ks_error m_cancel_error{};
+		std::atomic<int> ref_count = { 1 };
 	};
 
-	std::shared_ptr<__INTERMEDIATE_DATA> m_intermediate_data_ptr; //completed后被清除
+	ks_raw_smart_ptr<__INTERMEDIATE_DATA> m_intermediate_data_ptr; //completed后被清除
 
 	friend class ks_raw_future;
 };
@@ -520,7 +525,6 @@ public: //override ks_raw_promise's methods
 		this->do_complete(result.is_completed() ? result : ks_raw_result(ks_error::unexpected_error()), nullptr, false);
 	}
 
-
 protected:
 	virtual void on_feeded_by_prev(const ks_raw_result& prev_result, ks_raw_future* prev_future, ks_apartment* prev_advice_apartment) override {
 		//ks_raw_promise_future的此方法不应被调用，而是应直接do_complete
@@ -553,7 +557,7 @@ public:
 	explicit ks_raw_task_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_result()>&& task_fn, const ks_async_context& living_context, int64_t delay)
 		: ks_raw_future_baseimp(mode, true, spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta(), living_context)
 		, m_delay(delay) {
-		m_extra_intermediate_data_ptr = std::make_shared<__EXTRA_INTERMEDIATE_DATA>();
+		m_extra_intermediate_data_ptr.create_instance();
 		m_extra_intermediate_data_ptr->m_task_fn = std::move(task_fn);
 	}
 
@@ -672,9 +676,11 @@ private:
 	struct __EXTRA_INTERMEDIATE_DATA {
 		std::function<ks_raw_result()> m_task_fn; //在complete后被自动清除
 		uint64_t m_pending_schedule_id = 0;
+
+		std::atomic<int> ref_count = { 1 };
 	};
 
-	std::shared_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
+	ks_raw_smart_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
 };
 
 
@@ -682,7 +688,7 @@ class ks_raw_pipe_future final : public ks_raw_future_baseimp {
 public:
 	explicit ks_raw_pipe_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_result(const ks_raw_result&)>&& fn_ex, const ks_async_context& living_context, bool cancelable)
 		: ks_raw_future_baseimp(mode, cancelable, spec_apartment, living_context) {
-		m_extra_intermediate_data_ptr = std::make_shared<__EXTRA_INTERMEDIATE_DATA>();
+		m_extra_intermediate_data_ptr.create_instance();
 		m_extra_intermediate_data_ptr->m_fn_ex = std::move(fn_ex);
 	}
 
@@ -840,9 +846,11 @@ private:
 	struct __EXTRA_INTERMEDIATE_DATA {
 		std::function<ks_raw_result(const ks_raw_result&)> m_fn_ex;  //在complete后被自动清除
 		std::weak_ptr<ks_raw_future> m_prev_future_weak;             //在complete后被自动清除
+
+		std::atomic<int> ref_count = { 1 };
 	};
 
-	std::shared_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
+	ks_raw_smart_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
 };
 
 
@@ -850,7 +858,7 @@ class ks_raw_flatten_future final : public ks_raw_future_baseimp {
 public:
 	explicit ks_raw_flatten_future(ks_raw_future_mode mode, ks_apartment* spec_apartment, std::function<ks_raw_future_ptr(const ks_raw_result&)>&& afn_ex, const ks_async_context& living_context)
 		: ks_raw_future_baseimp(mode, true, spec_apartment, living_context) {
-		m_extra_intermediate_data_ptr = std::make_shared<__EXTRA_INTERMEDIATE_DATA>();
+		m_extra_intermediate_data_ptr.create_instance();
 		m_extra_intermediate_data_ptr->m_afn_ex = std::move(afn_ex);
 	}
 
@@ -968,9 +976,11 @@ private:
 		std::function<ks_raw_future_ptr(const ks_raw_result&)> m_afn_ex;
 		std::weak_ptr<ks_raw_future> m_prev_future_weak;
 		std::weak_ptr<ks_raw_future> m_extern_future_weak;
+
+		std::atomic<int> ref_count = { 1 };
 	};
 
-	std::shared_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
+	ks_raw_smart_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
 };
 
 
@@ -978,7 +988,7 @@ class ks_raw_aggr_future final : public ks_raw_future_baseimp {
 public:
 	explicit ks_raw_aggr_future(ks_raw_future_mode mode, ks_apartment* spec_apartment) 
 		: ks_raw_future_baseimp(mode, true, spec_apartment, ks_async_context::__empty_inst()) {
-		m_extra_intermediate_data_ptr = std::make_shared<__EXTRA_INTERMEDIATE_DATA>();
+		m_extra_intermediate_data_ptr.create_instance();
 	}
 
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_aggr_future);
@@ -1202,9 +1212,11 @@ private:
 		std::vector<ks_apartment*> m_prev_prefer_apartment_seq_cache; //在触发后被自动清除
 		size_t m_prev_first_resolved_index = -1; //在触发后被自动清除
 		size_t m_prev_first_rejected_index = -1; //在触发后被自动清除
+
+		std::atomic<int> ref_count = { 1 };
 	};
 
-	std::shared_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
+	ks_raw_smart_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
 };
 
 
