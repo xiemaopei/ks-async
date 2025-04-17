@@ -912,7 +912,7 @@ public:
 			}
 
 			if (extern_future != nullptr) {
-				m_extra_intermediate_data_ptr->m_extern_future = extern_future;
+				m_extra_intermediate_data_ptr->m_extern_future_weak = extern_future;
 
 				lock2.unlock();
 				extern_future->on_completion([this, this_shared, prefer_apartment](const ks_raw_result& extern_result) {
@@ -935,7 +935,7 @@ protected:
 		if (m_extra_intermediate_data_ptr != nullptr) {
 			m_extra_intermediate_data_ptr->m_afn_ex = {};
 			m_extra_intermediate_data_ptr->m_prev_future_weak.reset();
-			m_extra_intermediate_data_ptr->m_extern_future.reset();
+			m_extra_intermediate_data_ptr->m_extern_future_weak.reset();
 
 			m_extra_intermediate_data_ptr.reset();
 		}
@@ -957,9 +957,9 @@ protected:
 
 		if (backtrack) {
 			ks_raw_future_ptr prev_future = m_extra_intermediate_data_ptr->m_prev_future_weak.lock();
-			ks_raw_future_ptr extern_future = m_extra_intermediate_data_ptr->m_extern_future;
+			ks_raw_future_ptr extern_future = m_extra_intermediate_data_ptr->m_extern_future_weak.lock();
 			m_extra_intermediate_data_ptr->m_prev_future_weak.reset();
-			m_extra_intermediate_data_ptr->m_extern_future.reset();
+			m_extra_intermediate_data_ptr->m_extern_future_weak.reset();
 
 			lock.unlock();
 			if (extern_future != nullptr)
@@ -977,7 +977,7 @@ private:
 	struct __EXTRA_INTERMEDIATE_DATA {
 		std::function<ks_raw_future_ptr(const ks_raw_result&)> m_afn_ex;
 		std::weak_ptr<ks_raw_future> m_prev_future_weak;
-		std::shared_ptr<ks_raw_future> m_extern_future;
+		std::weak_ptr<ks_raw_future> m_extern_future_weak;
 	};
 
 	std::shared_ptr<__EXTRA_INTERMEDIATE_DATA> m_extra_intermediate_data_ptr;
