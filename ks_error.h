@@ -50,14 +50,14 @@ public:
 	template <class T, class X = T, class _ = std::enable_if_t<std::is_convertible_v<X, T>>>
 	ks_error with_payload(X&& payload) const {
 		ks_error ret = *this;
-		ASSERT(ret.get_code() != 0);
+		ASSERT(ret.m_code != 0);
 		ret.m_payload_any = ks_any::of<T>(std::forward<X>(payload));
 		return ret;
 	}
 
 public:
 	HRESULT get_code() const {
-		return m_code;
+		return (volatile HRESULT&)m_code;
 	}
 
 	template <class T>

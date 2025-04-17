@@ -31,8 +31,8 @@ public:
 	virtual bool check_cancel() override {
 		return ks_raw_future::__check_current_future_cancel(true);
 	}
-	virtual ks_error get_cancel_error() override {
-		return ks_raw_future::__get_current_future_cancel_error(true);
+	virtual ks_error acquire_cancel_error() override {
+		return ks_raw_future::__acquire_current_future_cancel_error(ks_error(), true);
 	}
 
 private:

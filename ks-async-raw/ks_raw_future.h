@@ -65,7 +65,7 @@ public:
 
 	virtual void try_cancel(bool backtrack);
 	KS_ASYNC_API static bool __check_current_future_cancel(bool with_extra);
-	KS_ASYNC_API static ks_error __get_current_future_cancel_error(bool with_extra);
+	KS_ASYNC_API static ks_error __acquire_current_future_cancel_error(const ks_error& def_error, bool with_extra);
 
 	virtual void set_timeout(int64_t timeout, bool backtrack);
 

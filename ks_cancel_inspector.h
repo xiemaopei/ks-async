@@ -26,7 +26,7 @@ protected:
 
 public:
 	virtual bool check_cancel() = 0;
-	virtual ks_error get_cancel_error() = 0;
+	virtual ks_error acquire_cancel_error() = 0;
 
 private:
 	KS_ASYNC_API static ks_cancel_inspector* __for_future();

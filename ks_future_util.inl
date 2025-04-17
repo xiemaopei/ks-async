@@ -452,7 +452,7 @@ public: //repeat, repeat_periodic, repeat_productive
 		if (produce_apartment == nullptr)
 			produce_apartment = ks_apartment::current_thread_apartment_or_default_mta();
 		if (consume_apartment == nullptr)
-			consume_apartment = ks_apartment::__virtual_inplace_apartment();
+			consume_apartment = ks_apartment::current_thread_apartment_or_default_mta();
 
 		std::shared_ptr<__repetitive_data_t<V>> data = std::make_shared<__repetitive_data_t<V>>();
 		data->produce_apartment = produce_apartment;
