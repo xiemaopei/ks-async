@@ -705,6 +705,7 @@ public:
 
 		m_extra_intermediate_data_ptr->m_prev_future_weak = prev_future;
 
+		lock.unlock();
 		prev_future->do_add_next(this->shared_from_this());
 	}
 
@@ -870,10 +871,13 @@ public:
 		if (m_spec_apartment == nullptr)
 			m_spec_apartment = prev_future->get_spec_apartment();
 
+		m_extra_intermediate_data_ptr->m_prev_future_weak = prev_future;
+
 		auto this_shared = this->shared_from_this();
 		auto context = m_intermediate_data_ptr->m_living_context;
 
-		m_extra_intermediate_data_ptr->m_medium_future = prev_future->on_completion(
+		lock.unlock();
+		prev_future->on_completion(
 			[this, this_shared, context](const ks_raw_result& prev_result) mutable -> void {
 			std::unique_lock<ks_mutex> lock2(m_mutex);
 			if (m_completed_result.is_completed()) 
@@ -909,9 +913,11 @@ public:
 
 			if (extern_future != nullptr) {
 				m_extra_intermediate_data_ptr->m_extern_future = extern_future;
-				m_extra_intermediate_data_ptr->m_extern_future->on_completion([this, this_shared, context, prefer_apartment](const ks_raw_result& extern_result) {
+
+				lock2.unlock();
+				extern_future->on_completion([this, this_shared, prefer_apartment](const ks_raw_result& extern_result) {
 					this->do_complete(extern_result, prefer_apartment, false);
-				}, context, prefer_apartment);
+				}, make_async_context().set_priority(0x10000), prefer_apartment);
 			}
 			else {
 				this->do_complete_locked(else_error, prefer_apartment, false, lock2, false);
@@ -928,30 +934,10 @@ protected:
 	virtual void do_reset_extra_data_locked(std::unique_lock<ks_mutex>& lock) override {
 		if (m_extra_intermediate_data_ptr != nullptr) {
 			m_extra_intermediate_data_ptr->m_afn_ex = {};
-			m_extra_intermediate_data_ptr->m_medium_future = nullptr;
-			m_extra_intermediate_data_ptr->m_extern_future = nullptr;
+			m_extra_intermediate_data_ptr->m_prev_future_weak.reset();
+			m_extra_intermediate_data_ptr->m_extern_future.reset();
 
 			m_extra_intermediate_data_ptr.reset();
-		}
-	}
-
-	virtual void do_set_timeout(int64_t timeout, const ks_error& error, bool backtrack) override {
-		std::unique_lock<ks_mutex> lock(m_mutex);
-		if (m_completed_result.is_completed())
-			return;
-
-		ASSERT(m_intermediate_data_ptr != nullptr);
-		ASSERT(m_extra_intermediate_data_ptr != nullptr);
-
-		ks_raw_future_ptr medium_future = m_extra_intermediate_data_ptr->m_medium_future;
-		ks_raw_future_ptr extern_future = m_extra_intermediate_data_ptr->m_extern_future;
-		lock.unlock();
-
-		if (medium_future != nullptr) {
-			medium_future->do_set_timeout(timeout, error, backtrack);
-		}
-		if (extern_future != nullptr) {
-			extern_future->set_timeout(timeout, backtrack);
 		}
 	}
 
@@ -969,15 +955,17 @@ protected:
 			m_intermediate_data_ptr->m_cancel_error = error;
 		}
 
-		ks_raw_future_ptr medium_future = m_extra_intermediate_data_ptr->m_medium_future;
-		ks_raw_future_ptr extern_future = m_extra_intermediate_data_ptr->m_extern_future;
-		lock.unlock();
+		if (backtrack) {
+			ks_raw_future_ptr prev_future = m_extra_intermediate_data_ptr->m_prev_future_weak.lock();
+			ks_raw_future_ptr extern_future = m_extra_intermediate_data_ptr->m_extern_future;
+			m_extra_intermediate_data_ptr->m_prev_future_weak.reset();
+			m_extra_intermediate_data_ptr->m_extern_future.reset();
 
-		if (medium_future != nullptr) {
-			medium_future->do_try_cancel(error, backtrack);
-		}
-		if (extern_future != nullptr) {
-			extern_future->try_cancel(backtrack);
+			lock.unlock();
+			if (extern_future != nullptr)
+				extern_future->try_cancel(backtrack);
+			if (prev_future != nullptr)
+				prev_future->do_try_cancel(error, backtrack);
 		}
 	}
 
@@ -988,7 +976,7 @@ protected:
 private:
 	struct __EXTRA_INTERMEDIATE_DATA {
 		std::function<ks_raw_future_ptr(const ks_raw_result&)> m_afn_ex;
-		std::shared_ptr<ks_raw_future> m_medium_future;
+		std::weak_ptr<ks_raw_future> m_prev_future_weak;
 		std::shared_ptr<ks_raw_future> m_extern_future;
 	};
 
@@ -1026,9 +1014,10 @@ public:
 		m_extra_intermediate_data_ptr->m_prev_first_rejected_index = -1;
 
 		ks_raw_future_ptr this_shared = this->shared_from_this();
-		for (auto& prev_future : prev_futures) {
+
+		lock.unlock();
+		for (auto& prev_future : prev_futures) 
 			prev_future->do_add_next(this_shared);
-		}
 	}
 
 protected:
