@@ -521,10 +521,8 @@ public: //override ks_raw_promise's methods
 	}
 
 	virtual void try_settle(const ks_raw_result& result) override {
-		if (result.is_completed())
-			this->do_complete(result, nullptr, false);
-		else
-			ASSERT(false);
+		ASSERT(result.is_completed());
+		this->do_complete(result.is_completed() ? result : ks_raw_result(ks_error::unexpected_error()), nullptr, false);
 	}
 
 
@@ -706,6 +704,7 @@ public:
 			m_spec_apartment = prev_future->get_spec_apartment();
 
 		m_extra_intermediate_data_ptr->m_prev_future_weak = prev_future;
+
 		prev_future->do_add_next(this->shared_from_this());
 	}
 
