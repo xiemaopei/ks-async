@@ -191,6 +191,7 @@ void ks_apartment::__set_current_thread_apartment(ks_apartment* current_thread_a
 }
 
 void ks_apartment::__set_current_thread_name(const char* thread_name) {
+	ASSERT(thread_name != nullptr);
 	__native_set_current_thread_name(thread_name);
 }
 
