@@ -25,8 +25,6 @@ public:
 public:
 	KS_ASYNC_API void set_j(size_t j);
 
-	KS_ASYNC_API void __set_default_apartment(ks_apartment* apartment);
-
 public:
 	KS_ASYNC_API bool add_task(
 		const char* name_and_dependencies,
@@ -156,7 +154,6 @@ private:
 	ks_mutex m_mutex;
 
 	size_t m_j = size_t(-1);
-	ks_apartment* m_default_apartment = ks_apartment::default_mta();
 
 	std::map<std::string, std::shared_ptr<_TASK_ITEM>> m_task_map{};
 

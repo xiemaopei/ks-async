@@ -125,13 +125,6 @@ void ks_raw_async_flow::set_j(size_t j) {
 		m_j = size_t(-1);
 }
 
-void ks_raw_async_flow::__set_default_apartment(ks_apartment* apartment) {
-	std::unique_lock<ks_mutex> lock(m_mutex);
-	m_default_apartment = apartment;
-	if (m_default_apartment == nullptr)
-		m_default_apartment  = ks_apartment::default_mta();
-}
-
 
 bool ks_raw_async_flow::add_task(
 	const char* name_and_dependencies,
@@ -210,7 +203,7 @@ bool ks_raw_async_flow::add_flat_task(
 	std::shared_ptr<_TASK_ITEM> task_item = std::make_shared<_TASK_ITEM>();
 	task_item->task_name.swap(task_name);
 	task_item->task_dependencies.swap(task_dependencies);
-	task_item->task_apartment = apartment != nullptr ? apartment : m_default_apartment;
+	task_item->task_apartment = apartment != nullptr ? apartment : ks_apartment::default_mta();
 	task_item->need_apply_value = need_apply_value;
 	task_item->task_value_typeinfo = value_typeinfo;
 
@@ -259,7 +252,7 @@ uint64_t ks_raw_async_flow::add_flow_running_observer(ks_apartment* apartment, s
 	std::unique_lock<ks_mutex> lock(m_mutex);
 
 	std::shared_ptr<_FLOW_OBSERVER_ITEM> observer_item = std::make_shared<_FLOW_OBSERVER_ITEM>();
-	observer_item->apartment = apartment != nullptr ? apartment : m_default_apartment;
+	observer_item->apartment = apartment != nullptr ? apartment : ks_apartment::default_mta();
 	observer_item->on_flow_running_fn = std::move(fn);
 	observer_item->observer_context = context;
 
@@ -273,7 +266,7 @@ uint64_t ks_raw_async_flow::add_flow_completed_observer(ks_apartment* apartment,
 	std::unique_lock<ks_mutex> lock(m_mutex);
 
 	std::shared_ptr<_FLOW_OBSERVER_ITEM> observer_item = std::make_shared<_FLOW_OBSERVER_ITEM>();
-	observer_item->apartment = apartment != nullptr ? apartment : m_default_apartment;
+	observer_item->apartment = apartment != nullptr ? apartment : ks_apartment::default_mta();
 	observer_item->on_flow_completed_fn = std::move(fn);
 	observer_item->observer_context = context;
 
@@ -288,7 +281,7 @@ uint64_t ks_raw_async_flow::add_task_running_observer(const char* task_name_patt
 
 	std::shared_ptr<_TASK_OBSERVER_ITEM> observer_item = std::make_shared<_TASK_OBSERVER_ITEM>();
 	__do_pattern_to_regex(task_name_pattern, &observer_item->task_name_pattern_re);
-	observer_item->apartment = apartment != nullptr ? apartment : m_default_apartment;
+	observer_item->apartment = apartment != nullptr ? apartment : ks_apartment::default_mta();
 	observer_item->on_task_running_fn = std::move(fn);
 	observer_item->observer_context = context;
 
@@ -303,7 +296,7 @@ uint64_t ks_raw_async_flow::add_task_completed_observer(const char* task_name_pa
 
 	std::shared_ptr<_TASK_OBSERVER_ITEM> observer_item = std::make_shared<_TASK_OBSERVER_ITEM>();
 	__do_pattern_to_regex(task_name_pattern, &observer_item->task_name_pattern_re);
-	observer_item->apartment = apartment != nullptr ? apartment : m_default_apartment;
+	observer_item->apartment = apartment != nullptr ? apartment : ks_apartment::default_mta();
 	observer_item->on_task_completed_fn = std::move(fn);
 	observer_item->observer_context = context;
 
@@ -547,7 +540,7 @@ ks_raw_future_ptr ks_raw_async_flow::get_flow_future_void() {
 	std::unique_lock<ks_mutex> lock(m_mutex);
 
 	if (m_flow_promise_void_opt == nullptr) {
-		m_flow_promise_void_opt = ks_raw_promise::create(m_default_apartment);
+		m_flow_promise_void_opt = ks_raw_promise::create(ks_apartment::default_mta());
 		if (m_flow_status == status_t::succeeded || m_flow_status == status_t::failed) {
 			if (m_last_error.get_code() == 0)
 				m_flow_promise_void_opt->resolve(ks_raw_value::of<nothing_t>(nothing));
@@ -569,7 +562,7 @@ ks_future<ks_async_flow> ks_raw_async_flow::get_flow_future_this_wrapped() {
 
 	ks_raw_promise_ptr flow_promise_this_wrapped = m_flow_promise_this_wrapped_weak.lock();
 	if (flow_promise_this_wrapped == nullptr) {
-		flow_promise_this_wrapped = ks_raw_promise::create(m_default_apartment);
+		flow_promise_this_wrapped = ks_raw_promise::create(ks_apartment::default_mta());
 		m_flow_promise_this_wrapped_weak = flow_promise_this_wrapped;
 
 		if (m_flow_status == status_t::succeeded || m_flow_status == status_t::failed) {

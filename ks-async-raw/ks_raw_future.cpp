@@ -185,9 +185,9 @@ protected:
 		ASSERT(intermediate_data_ptr != nullptr);
 
 		ks_apartment* cur_apartment = ks_apartment::current_thread_apartment();
-		ASSERT(cur_apartment == nullptr || (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0);
+		ASSERT(cur_apartment != nullptr ? (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0 : true);
 		if (cur_apartment != nullptr && (cur_apartment->features() & ks_apartment::nested_pump_enabled_future) != 0) {
-			intermediate_data_ptr->m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，但不必重复记录，因为至多仅顶层可能会卡在真cv.wait调用处
+			intermediate_data_ptr->m_waiting_for_me_apartment_set.insert(cur_apartment); //若嵌套loop会遭遇相同项，不必重复记录，因为一次notify就触发全部
 
 			lock.unlock();
 			bool was_satisfied = cur_apartment->__do_run_nested_pump_loop_for_extern_waiting(
