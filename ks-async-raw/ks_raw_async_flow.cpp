@@ -1,5 +1,5 @@
 ﻿#include "ks_raw_async_flow.h"
-#include "ks_raw_internal_helper.h"
+#include "ks_raw_internal_helper.hpp"
 #include "../ks_async_flow.h" //for flow_promise_wrapped
 #include <cstring>
 #include <string.h>

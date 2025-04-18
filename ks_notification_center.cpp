@@ -15,7 +15,7 @@ limitations under the License.
 
 #include "ks_notification_center.h"
 #include "ks_thread_pool_apartment_imp.h"
-#include "ks-async-raw/ks_raw_internal_helper.h"
+#include "ks-async-raw/ks_raw_internal_helper.hpp"
 #include "ktl/ks_concurrency.h"
 #include <string>
 #include <deque>

@@ -67,9 +67,9 @@ set(MY_ASYNC_RAW_SOURCE_FILES
 	ks-async-raw/ks_raw_promise.cpp
 	ks-async-raw/ks_raw_value.h
 	ks-async-raw/ks_raw_result.h
-	ks-async-raw/ks_raw_internal_helper.h
 	ks-async-raw/ks_raw_async_flow.h
 	ks-async-raw/ks_raw_async_flow.cpp
+	ks-async-raw/ks_raw_internal_helper.hpp
 )
 
 set(MY_KTL_SOURCE_FILES
