@@ -38,6 +38,8 @@ limitations under the License.
 
 #define __KS_ASYNC_CONTEXT_FROM_SOURCE_LOCATION_ENABLED  0
 
+#define __KS_ASYNC_RAW_FUTURE_MUTEX_GLOBAL_SINGLETON_ENABLED  0
+
 #ifdef _WIN32
 #   define __KS_APARTMENT_ATFORK_ENABLED  0  //开启也可通过编译，只是没有被使用需求
 #else

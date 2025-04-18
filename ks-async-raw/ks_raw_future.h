@@ -88,8 +88,7 @@ protected:
 
 	virtual bool do_wait() = 0;
 
-	virtual ks_apartment* get_spec_apartment() = 0;
-	virtual bool is_with_upstream_future() = 0;
+	virtual bool is_original_future() = 0;
 
 protected:
 	friend class ks_raw_future_baseimp;
