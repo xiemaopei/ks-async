@@ -521,6 +521,37 @@ protected:
 };
 
 
+class ks_raw_dx_future final : public ks_raw_future_baseimp {
+public:
+	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
+	explicit ks_raw_dx_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, false) {}
+	_DISABLE_COPY_CONSTRUCTOR(ks_raw_dx_future);
+
+	void init(ks_apartment* spec_apartment, const ks_raw_result& completed_result) {
+		std::unique_lock<ks_mutex> lock(m_mutex);
+		do_init_with_result_locked(spec_apartment, completed_result, lock, false);
+	}
+
+protected:
+	virtual void on_feeded_by_prev(const ks_raw_result& prev_result, ks_raw_future* prev_future, ks_apartment* prev_advice_apartment) override {
+		//ks_raw_promise_future的此方法不应被调用，而是应直接do_complete
+		ASSERT(false);
+	}
+
+	virtual void do_try_cancel(const ks_error& error, bool backtrack) override {
+		ASSERT(error.get_code() != 0);
+		ASSERT(this->is_completed());
+	}
+
+	virtual bool is_with_upstream_future() override {
+		return false;
+	}
+
+private:
+	using __INTERMEDIATE_DATA_EX = void;
+};
+
+
 class ks_raw_promise_future final : public ks_raw_future_baseimp, public ks_raw_promise {
 public:
 	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
@@ -529,18 +560,9 @@ public:
 
 	void init(ks_apartment* spec_apartment) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
-		ASSERT(m_mode == ks_raw_future_mode::PROMISE);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
 		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, ks_async_context::__empty_inst(), lock);
-	}
-
-	void init_with_result(ks_apartment* spec_apartment, const ks_raw_result& completed_result) {
-		std::unique_lock<ks_mutex> lock(m_mutex);
-		ASSERT(m_mode == ks_raw_future_mode::DX);
-
-		ASSERT(m_intermediate_data_ptr == nullptr);
-		do_init_with_result_locked(spec_apartment, completed_result, lock, false);
 	}
 
 public: //override ks_raw_promise's methods
@@ -1298,21 +1320,21 @@ private:
 
 //ks_raw_future静态方法实现
 ks_raw_future_ptr ks_raw_future::resolved(const ks_raw_value& value, ks_apartment* apartment) {
-	auto dx_future = std::make_shared<ks_raw_promise_future>(ks_raw_future_mode::DX);
-	dx_future->init_with_result(apartment, ks_raw_result(value));
+	auto dx_future = std::make_shared<ks_raw_dx_future>(ks_raw_future_mode::DX);
+	dx_future->init(apartment, ks_raw_result(value));
 	return dx_future;
 }
 
 ks_raw_future_ptr ks_raw_future::rejected(const ks_error& error, ks_apartment* apartment) {
-	auto dx_future = std::make_shared<ks_raw_promise_future>(ks_raw_future_mode::DX);
-	dx_future->init_with_result(apartment, ks_raw_result(error));
+	auto dx_future = std::make_shared<ks_raw_dx_future>(ks_raw_future_mode::DX);
+	dx_future->init(apartment, ks_raw_result(error));
 	return dx_future;
 }
 
 ks_raw_future_ptr ks_raw_future::__from_result(const ks_raw_result& result, ks_apartment* apartment) {
 	ASSERT(result.is_completed());
-	auto dx_future = std::make_shared<ks_raw_promise_future>(ks_raw_future_mode::DX);
-	dx_future->init_with_result(apartment, result.is_completed() ? result : ks_raw_result(ks_error::unexpected_error()));
+	auto dx_future = std::make_shared<ks_raw_dx_future>(ks_raw_future_mode::DX);
+	dx_future->init(apartment, result.is_completed() ? result : ks_raw_result(ks_error::unexpected_error()));
 	return dx_future;
 }
 
