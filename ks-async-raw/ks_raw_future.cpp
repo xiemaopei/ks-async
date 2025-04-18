@@ -55,24 +55,32 @@ enum class ks_raw_future_mode {
 	_INVALID,
 	DX, PROMISE,  //promise
 	TASK, TASK_DELAYED,  //task
-	THEN, TRAP, TRANSFORM, FORWARD,  //pipe
-	FLATTEN_THEN, FLATTEN_TRAP, FLATTEN_TRANSFORM,  //flatten
+	THEN, TRAP, TRANSFORM,  //pipe
+	FLATTEN_THEN, FLATTEN_TRAP, FLATTEN_TRANSFORM,  //flatten-pipe
+	ON_SUCCESS, ON_FAILURE, ON_COMPLETION,  //on-pipe
+	FORWARD, //forward-pipe
 	ALL, ALL_COMPLETED, ANY, //aggr
 };
 
 class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_from_this<ks_raw_future> {
 protected:
-	explicit ks_raw_future_baseimp(ks_raw_future_mode mode, bool cancelable) : m_mode(mode), m_cancelable(cancelable) {}
+	explicit ks_raw_future_baseimp(ks_raw_future_mode mode) : m_mode(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
 
 	struct __INTERMEDIATE_DATA;
 	void do_init_base_locked(
 		const std::shared_ptr<__INTERMEDIATE_DATA>& intermediate_data_ex_ptr,
-		ks_apartment* spec_apartment, const ks_async_context& living_context, std::unique_lock<ks_mutex>& lock) {
+		ks_apartment* spec_apartment, ks_apartment* prev_apartment,
+		const ks_async_context& living_context, 
+		std::unique_lock<ks_mutex>& lock) {
 
 		ASSERT(lock.owns_lock());
+		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		m_spec_apartment = spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta();
+		m_spec_apartment = 
+			spec_apartment != nullptr ? spec_apartment : 
+			prev_apartment != nullptr ? prev_apartment : 
+			ks_apartment::default_mta();
 
 		m_intermediate_data_ptr = intermediate_data_ex_ptr;
 		intermediate_data_ex_ptr->m_living_context = living_context;
@@ -80,11 +88,16 @@ protected:
 	}
 
 	void do_init_with_result_locked(
-		ks_apartment* spec_apartment, const ks_raw_result& completed_result, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
+		ks_apartment* spec_apartment, ks_apartment* prev_apartment,
+		const ks_raw_result& completed_result, 
+		std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
 
 		ASSERT(lock.owns_lock() && !must_keep_locked);
 
-		m_spec_apartment = spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta();
+		m_spec_apartment = 
+			spec_apartment != nullptr ? spec_apartment : 
+			prev_apartment != nullptr ? prev_apartment :
+			ks_apartment::default_mta();
 
 		ASSERT(m_intermediate_data_ptr == nullptr);
 		this->do_complete_locked(completed_result, nullptr, true, lock, must_keep_locked);
@@ -323,19 +336,19 @@ protected:
 		}
 	}
 
-	void do_complete_locked(const ks_raw_result& result, ks_apartment* prefer_apartment, bool from_internal, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
+	void do_complete_locked(const ks_raw_result& completed_result, ks_apartment* prefer_completed_apartment, bool from_internal, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
 		ASSERT(lock.owns_lock() && !must_keep_locked);
 
-		ASSERT(result.is_completed());
+		ASSERT(completed_result.is_completed());
 
 		if (m_completed_result.is_completed()) 
 			return; //repeat complete?
 
-		if (prefer_apartment == nullptr)
-			prefer_apartment = this->do_determine_prefer_apartment(nullptr);
+		if (prefer_completed_apartment == nullptr)
+			prefer_completed_apartment = this->do_determine_prefer_apartment(nullptr);
 
-		m_completed_result = result.require_completed_or_error();
-		m_completed_prefer_apartment = prefer_apartment;
+		m_completed_result = completed_result.require_completed_or_error();
+		m_completed_prefer_apartment = prefer_completed_apartment;
 
 		auto intermediate_data_ptr = m_intermediate_data_ptr;
 		if (intermediate_data_ptr != nullptr) {
@@ -380,31 +393,31 @@ protected:
 				lock.unlock(); //按说内部流程无需解锁（除非外部不合理乱用0x10000优先级）
 
 				if (t_next_future_0 != nullptr)
-					t_next_future_0->on_feeded_by_prev(completed_result, this, prefer_apartment);
+					t_next_future_0->on_feeded_by_prev(completed_result, this, prefer_completed_apartment);
 				for (auto& next_future : t_next_future_more)
-					next_future->on_feeded_by_prev(completed_result, this, prefer_apartment);
+					next_future->on_feeded_by_prev(completed_result, this, prefer_completed_apartment);
 
 				if (must_keep_locked)
 					lock.lock();
 			}
 			else {
-				uint64_t act_schedule_id = prefer_apartment->schedule(
+				uint64_t act_schedule_id = prefer_completed_apartment->schedule(
 					[this, this_shared = this->shared_from_this(),
 					t_next_future_0, t_next_future_more,  //因为失败时还需要处理，所以不可以右值引用传递
-					completed_result, prefer_apartment]() {
+					completed_result, prefer_completed_apartment]() {
 					if (t_next_future_0 != nullptr)
-						t_next_future_0->on_feeded_by_prev(completed_result, this, prefer_apartment);
+						t_next_future_0->on_feeded_by_prev(completed_result, this, prefer_completed_apartment);
 					for (auto& next_future : t_next_future_more)
-						next_future->on_feeded_by_prev(completed_result, this, prefer_apartment);
+						next_future->on_feeded_by_prev(completed_result, this, prefer_completed_apartment);
 				}, 0);
 
 				if (act_schedule_id == 0) {
 					lock.unlock();
 
 					if (t_next_future_0 != nullptr)
-						t_next_future_0->on_feeded_by_prev(ks_error::terminated_error(), this, prefer_apartment);
+						t_next_future_0->on_feeded_by_prev(ks_error::terminated_error(), this, prefer_completed_apartment);
 					for (auto& next_future : t_next_future_more)
-						next_future->on_feeded_by_prev(ks_error::terminated_error(), this, prefer_apartment);
+						next_future->on_feeded_by_prev(ks_error::terminated_error(), this, prefer_completed_apartment);
 
 					if (must_keep_locked)
 						lock.lock();
@@ -487,7 +500,6 @@ protected:
 	ks_mutex m_mutex;
 
 	ks_raw_future_mode m_mode = ks_raw_future_mode::_INVALID; //const-like
-	bool m_cancelable = true;                                 //const-like
 	ks_apartment* m_spec_apartment = nullptr;                 //const-like
 
 	ks_raw_result m_completed_result{};
@@ -524,18 +536,22 @@ protected:
 class ks_raw_dx_future final : public ks_raw_future_baseimp {
 public:
 	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
-	explicit ks_raw_dx_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, false) {}
+	explicit ks_raw_dx_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_dx_future);
 
 	void init(ks_apartment* spec_apartment, const ks_raw_result& completed_result) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
-		do_init_with_result_locked(spec_apartment, completed_result, lock, false);
+		do_init_with_result_locked(spec_apartment, nullptr, completed_result, lock, false);
 	}
 
 protected:
 	virtual void on_feeded_by_prev(const ks_raw_result& prev_result, ks_raw_future* prev_future, ks_apartment* prev_advice_apartment) override {
 		//ks_raw_promise_future的此方法不应被调用，而是应直接do_complete
 		ASSERT(false);
+	}
+
+	virtual void do_set_timeout(int64_t timeout, const ks_error& error, bool backtrack) override {
+		ASSERT(this->is_completed());
 	}
 
 	virtual void do_try_cancel(const ks_error& error, bool backtrack) override {
@@ -555,14 +571,14 @@ private:
 class ks_raw_promise_future final : public ks_raw_future_baseimp, public ks_raw_promise {
 public:
 	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
-	explicit ks_raw_promise_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, true) {}
+	explicit ks_raw_promise_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_promise_future);
 
 	void init(ks_apartment* spec_apartment) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
-		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, ks_async_context::__empty_inst(), lock);
+		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, nullptr, ks_async_context::__empty_inst(), lock);
 	}
 
 public: //override ks_raw_promise's methods
@@ -599,7 +615,7 @@ protected:
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		if (m_cancelable) {
+		if (true) {
 			intermediate_data_ex_ptr->m_cancel_error = error;
 			this->do_complete_locked(error, nullptr, false, lock, false);
 		}
@@ -621,14 +637,14 @@ private:
 
 class ks_raw_task_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_task_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, true) {}
+	explicit ks_raw_task_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_task_future);
 
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_result()>&& task_fn, const ks_async_context& living_context, int64_t delay) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
-		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, living_context, lock);
+		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, nullptr, living_context, lock);
 		intermediate_data_ex_ptr->m_delay = delay;
 		intermediate_data_ex_ptr->m_task_fn = std::move(task_fn);
 
@@ -718,7 +734,7 @@ protected:
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		if (m_cancelable) {
+		if (true) {
 			intermediate_data_ex_ptr->m_cancel_error = error;
 
 			//若为延时任务，则执行unschedule，task-future结果状态将成为rejected
@@ -754,14 +770,14 @@ private:
 
 class ks_raw_pipe_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_pipe_future(ks_raw_future_mode mode, bool cancelable) : ks_raw_future_baseimp(mode, cancelable) {}
+	explicit ks_raw_pipe_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_pipe_future);
 
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_result(const ks_raw_result&)>&& fn_ex, const ks_async_context& living_context, const ks_raw_future_ptr& prev_future) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
-		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, living_context, lock);
+		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, prev_future->get_spec_apartment(), living_context, lock);
 		intermediate_data_ex_ptr->m_fn_ex = std::move(fn_ex);
 
 		do_connect_locked(intermediate_data_ex_ptr, prev_future, lock, false);
@@ -773,9 +789,6 @@ private:
 		ASSERT(lock.owns_lock() && !must_keep_locked);
 		ASSERT(!m_completed_result.is_completed());
 		ASSERT(m_intermediate_data_ptr == intermediate_data_ex_ptr);
-
-		if (m_spec_apartment == nullptr) 
-			m_spec_apartment = prev_future->get_spec_apartment();
 
 		intermediate_data_ex_ptr->m_prev_future_weak = prev_future;
 
@@ -801,12 +814,15 @@ protected:
 		bool could_skip_run = false;
 		switch (m_mode) {
 		case ks_raw_future_mode::THEN:
+		case ks_raw_future_mode::ON_SUCCESS:
 			could_skip_run = !prev_result.is_value();
 			break;
 		case ks_raw_future_mode::TRAP:
+		case ks_raw_future_mode::ON_FAILURE:
 			could_skip_run = !prev_result.is_error();
 			break;
 		case ks_raw_future_mode::TRANSFORM:
+		case ks_raw_future_mode::ON_COMPLETION:
 			could_skip_run = false;
 			break;
 		case ks_raw_future_mode::FORWARD:
@@ -824,7 +840,7 @@ protected:
 			return;
 		}
 
-		if (m_cancelable && this->do_check_cancel_locking(lock)) {
+		if (true && this->do_check_cancel_locking(lock)) {
 			//若this已被cancel，则立即将this进行settle即可
 			ks_apartment* prefer_apartment = this->do_determine_prefer_apartment(prev_advice_apartment);
 			this->do_complete_locked(
@@ -849,7 +865,7 @@ protected:
 
 			ks_raw_result result;
 			try {
-				if (m_cancelable && this->do_check_cancel_locking(lock2))
+				if (true && this->do_check_cancel_locking(lock2))
 					result = prev_result.is_error() ? prev_result.to_error() : this->do_acquire_cancel_error_locking(ks_error::cancelled_error(), lock2);
 				else {
 					std::function<ks_raw_result(const ks_raw_result&)> fn_ex = std::move(intermediate_data_ex_ptr->m_fn_ex);
@@ -898,7 +914,20 @@ protected:
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		if (m_cancelable) {
+		bool cancelable = true;
+		switch (m_mode) {
+		case ks_raw_future_mode::ON_SUCCESS:
+		case ks_raw_future_mode::ON_FAILURE:
+		case ks_raw_future_mode::ON_COMPLETION:
+		case ks_raw_future_mode::FORWARD:
+			cancelable = false;
+			break;
+		default:
+			ASSERT(false);
+			break;
+		}
+
+		if (cancelable || !backtrack) {
 			intermediate_data_ex_ptr->m_cancel_error = error;
 			//pipe-future无需主动标记结果
 		}
@@ -931,14 +960,14 @@ private:
 
 class ks_raw_flatten_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_flatten_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, true) {}
+	explicit ks_raw_flatten_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_flatten_future);
 		
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_future_ptr(const ks_raw_result&)>&& afn_ex, const ks_async_context& living_context, const ks_raw_future_ptr& prev_future) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
-		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, living_context, lock);
+		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, prev_future->get_spec_apartment(), living_context, lock);
 		intermediate_data_ex_ptr->m_afn_ex = std::move(afn_ex);
 
 		do_connect_locked(prev_future, lock, false);
@@ -952,9 +981,6 @@ private:
 
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
-
-		if (m_spec_apartment == nullptr)
-			m_spec_apartment = prev_future->get_spec_apartment();
 
 		intermediate_data_ex_ptr->m_prev_future_weak = prev_future;
 
@@ -1033,7 +1059,7 @@ protected:
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		if (m_cancelable) {
+		if (true) {
 			intermediate_data_ex_ptr->m_cancel_error = error;
 		}
 
@@ -1070,14 +1096,14 @@ private:
 
 class ks_raw_aggr_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_aggr_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode, true) {}
+	explicit ks_raw_aggr_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_aggr_future);
 
 	void init(ks_apartment* spec_apartment, const std::vector<ks_raw_future_ptr>& prev_futures) {
 		std::unique_lock<ks_mutex> lock(m_mutex);
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
-		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, ks_async_context::__empty_inst(), lock);
+		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, nullptr, ks_async_context::__empty_inst(), lock);
 
 		do_connect_locked(prev_futures, lock, false);
 	}
@@ -1176,7 +1202,7 @@ protected:
 		auto intermediate_data_ex_ptr = get_intermediate_data_ex_ptr();
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
-		if (m_cancelable) {
+		if (true) {
 			intermediate_data_ex_ptr->m_cancel_error = error;
 			//aggr-future无需主动标记结果
 		}
@@ -1445,7 +1471,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::then(std::function<ks_raw_result(const 
 			return input;
 	};
 
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::THEN, true);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::THEN);
 	pipe_future->init(apartment, std::move(fn_ex), context, this->shared_from_this());
 	return pipe_future;
 }
@@ -1458,13 +1484,13 @@ ks_raw_future_ptr ks_raw_future_baseimp::trap(std::function<ks_raw_result(const 
 			return input;
 	};
 
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRAP, true);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRAP);
 	pipe_future->init(apartment, std::move(fn_ex), context, this->shared_from_this());
 	return pipe_future;
 }
 
 ks_raw_future_ptr ks_raw_future_baseimp::transform(std::function<ks_raw_result(const ks_raw_result &)>&& fn, const ks_async_context& context, ks_apartment* apartment) {
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRANSFORM, true);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRANSFORM);
 	pipe_future->init(apartment, std::move(fn), context, this->shared_from_this());
 	return pipe_future;
 }
@@ -1512,7 +1538,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_success(std::function<void(const ks_
 		return input;
 	};
 
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::THEN, false);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::ON_SUCCESS);
 	pipe_future->init(apartment, std::move(fn_ex), context, this->shared_from_this());
 	return pipe_future;
 }
@@ -1524,7 +1550,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_failure(std::function<void(const ks_
 		return input;
 	};
 
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRAP, false);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::ON_FAILURE);
 	pipe_future->init(apartment, std::move(fn_ex), context, this->shared_from_this());
 	return pipe_future;
 }
@@ -1535,13 +1561,13 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_completion(std::function<void(const 
 		return input;
 	};
 
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::TRANSFORM, false);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::ON_COMPLETION);
 	pipe_future->init(apartment, std::move(fn_ex), context, this->shared_from_this());
 	return pipe_future;
 }
 
 ks_raw_future_ptr ks_raw_future_baseimp::noop(ks_apartment* apartment) {
-	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::FORWARD, false);
+	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::FORWARD);
 	pipe_future->init(apartment,
 		[](const auto& input) -> auto { return input; },
 		make_async_context().set_priority(0x10000), 
