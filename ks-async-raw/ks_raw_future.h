@@ -88,8 +88,6 @@ protected:
 
 	virtual bool do_wait() = 0;
 
-	virtual bool is_original_future() = 0;
-
 protected:
 	friend class ks_raw_future_baseimp;
 	friend class ks_raw_promise_future;

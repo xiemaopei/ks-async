@@ -444,14 +444,14 @@ public: //cast, map, map_value
 		return m_nothing_future.template map_value<R>(std::forward<X>(other_value));
 	}
 
-public: //set_timeout, try_cancel
-	const this_future_type& set_timeout(int64_t timeout) const {
-		m_nothing_future.set_timeout(timeout);
+public: //try_cancel, set_timeout
+	const this_future_type& try_cancel() const {
+		m_nothing_future.try_cancel();
 		return *this;
 	}
 
-	const this_future_type& try_cancel() const {
-		m_nothing_future.try_cancel();
+	const this_future_type& set_timeout(int64_t timeout) const {
+		m_nothing_future.set_timeout(timeout);
 		return *this;
 	}
 

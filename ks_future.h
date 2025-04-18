@@ -254,16 +254,16 @@ public: //cast, map, map_value
 		return ks_future<R>::__from_raw(raw_future2);
 	}
 
-public: //set_timeout, try_cancel
-	const this_future_type& set_timeout(int64_t timeout) const {
-		ASSERT(this->is_valid());
-		m_raw_future->set_timeout(timeout, true);
-		return *this;
-	}
-
+public: //try_cancel, set_timeout
 	const this_future_type& try_cancel() const {
 		ASSERT(this->is_valid());
 		m_raw_future->try_cancel(true);
+		return *this;
+	}
+
+	const this_future_type& set_timeout(int64_t timeout) const {
+		ASSERT(this->is_valid());
+		m_raw_future->set_timeout(timeout, true);
 		return *this;
 	}
 
