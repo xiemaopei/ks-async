@@ -1543,7 +1543,7 @@ ks_raw_future_ptr ks_raw_future_baseimp::on_completion(std::function<void(const 
 ks_raw_future_ptr ks_raw_future_baseimp::noop(ks_apartment* apartment) {
 	auto pipe_future = std::make_shared<ks_raw_pipe_future>(ks_raw_future_mode::FORWARD, false);
 	pipe_future->init(apartment,
-		[](const auto& input) { return input; },
+		[](const auto& input) -> auto { return input; },
 		make_async_context().set_priority(0x10000), 
 		this->shared_from_this());
 	return pipe_future;
