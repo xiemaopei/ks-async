@@ -56,9 +56,9 @@ enum class ks_raw_future_mode {
 	DX, PROMISE,  //promise
 	TASK, TASK_DELAYED,  //task
 	THEN, TRAP, TRANSFORM,  //pipe
-	FLATTEN_THEN, FLATTEN_TRAP, FLATTEN_TRANSFORM,  //flatten-pipe
 	ON_SUCCESS, ON_FAILURE, ON_COMPLETION,  //on-pipe
 	FORWARD, //forward-pipe
+	FLATTEN_THEN, FLATTEN_TRAP, FLATTEN_TRANSFORM,  //flatten
 	ALL, ALL_COMPLETED, ANY, //aggr
 };
 
@@ -906,6 +906,11 @@ protected:
 
 		bool cancelable = true;
 		switch (m_mode) {
+		case ks_raw_future_mode::THEN:
+		case ks_raw_future_mode::TRAP:
+		case ks_raw_future_mode::TRANSFORM:
+			cancelable = true;
+			break;
 		case ks_raw_future_mode::ON_SUCCESS:
 		case ks_raw_future_mode::ON_FAILURE:
 		case ks_raw_future_mode::ON_COMPLETION:
