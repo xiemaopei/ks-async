@@ -645,21 +645,24 @@ public:
 
 		auto intermediate_data_ex_ptr = std::make_shared<__INTERMEDIATE_DATA_EX>();
 		do_init_base_locked(intermediate_data_ex_ptr, spec_apartment, nullptr, living_context, lock);
-		intermediate_data_ex_ptr->m_delay = delay;
 		intermediate_data_ex_ptr->m_task_fn = std::move(task_fn);
+		intermediate_data_ex_ptr->m_delay = delay;
 
-		do_submit_locked(intermediate_data_ex_ptr, lock);
+		do_submit_locked(intermediate_data_ex_ptr, lock, false);
 	}
 
 private:
 	struct __INTERMEDIATE_DATA_EX;
-	void do_submit_locked(const std::shared_ptr<__INTERMEDIATE_DATA_EX>& intermediate_data_ex_ptr, std::unique_lock<ks_mutex>& lock) {
+	void do_submit_locked(const std::shared_ptr<__INTERMEDIATE_DATA_EX>& intermediate_data_ex_ptr, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
+		ASSERT(lock.owns_lock() && !must_keep_locked);
 		ASSERT(!m_completed_result.is_completed());
 		ASSERT(m_intermediate_data_ptr == intermediate_data_ex_ptr);
 
 		ks_apartment* prefer_apartment = this->do_determine_prefer_apartment(nullptr);
 		int priority = intermediate_data_ex_ptr->m_living_context.__get_priority();
 		bool could_run_locally = (priority >= 0x10000) && (m_spec_apartment == nullptr || m_spec_apartment == prefer_apartment);
+
+		ASSERT(intermediate_data_ex_ptr->m_pending_schedule_id == 0);
 
 		//pending_schedule_fn不对context进行捕获。
 		//这样做的意图是：对于delayed任务，当try_cancel时，即使apartment::try_unschedule失败，也不影响context的及时释放。
@@ -697,6 +700,8 @@ private:
 		if (could_run_locally) {
 			lock.unlock();
 			pending_schedule_fn(); //超高优先级、且spec_partment为nullptr，则立即执行，省掉schedule过程
+			if (must_keep_locked)
+				lock.lock();
 		}
 		else {
 			intermediate_data_ex_ptr->m_pending_schedule_id = (m_mode == ks_raw_future_mode::TASK)
@@ -756,9 +761,8 @@ protected:
 
 private:
 	struct __INTERMEDIATE_DATA_EX : __INTERMEDIATE_DATA {
-		int64_t m_delay;  //const-like
-
 		std::function<ks_raw_result()> m_task_fn; //在complete后被自动清除
+		int64_t m_delay;  //const-like
 		uint64_t m_pending_schedule_id = 0;
 	};
 
