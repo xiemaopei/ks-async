@@ -70,14 +70,18 @@ protected:
 		const std::shared_ptr<__INTERMEDIATE_DATA>& intermediate_data_ex_ptr,
 		ks_apartment* spec_apartment, const ks_async_context& living_context, std::unique_lock<ks_mutex>& lock) {
 
+		ASSERT(lock.owns_lock());
+
 		m_spec_apartment = spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta();
 
 		m_intermediate_data_ptr = intermediate_data_ex_ptr;
-		m_intermediate_data_ptr->m_living_context = living_context;
-		m_intermediate_data_ptr->m_create_time = std::chrono::steady_clock::now();
+		intermediate_data_ex_ptr->m_living_context = living_context;
+		intermediate_data_ex_ptr->m_create_time = std::chrono::steady_clock::now();
 	}
 
-	void do_init_base_with_result_locked(ks_apartment* spec_apartment, const ks_raw_result& completed_result, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
+	void do_init_with_result_locked(
+		ks_apartment* spec_apartment, const ks_raw_result& completed_result, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
+
 		ASSERT(lock.owns_lock() && !must_keep_locked);
 
 		m_spec_apartment = spec_apartment != nullptr ? spec_apartment : ks_apartment::default_mta();
@@ -125,18 +129,19 @@ protected:
 
 	bool do_check_cancel_locking(std::unique_lock<ks_mutex>& lock) {
 		if (!m_completed_result.is_completed()) {
-			ASSERT(m_intermediate_data_ptr != nullptr);
+			auto intermediate_data_ptr = m_intermediate_data_ptr;
+			ASSERT(intermediate_data_ptr != nullptr);
 
-			if (m_intermediate_data_ptr->m_cancel_error.get_code() != 0)
+			if (intermediate_data_ptr->m_cancel_error.get_code() != 0)
 				return true;
 
-			if (m_intermediate_data_ptr->m_living_context.__is_controller_present()) {
-				if (m_intermediate_data_ptr->m_living_context.__check_cancel_all_ctrl() || m_intermediate_data_ptr->m_living_context.__check_owner_expired())
+			if (intermediate_data_ptr->m_living_context.__is_controller_present()) {
+				if (intermediate_data_ptr->m_living_context.__check_cancel_all_ctrl() || intermediate_data_ptr->m_living_context.__check_owner_expired())
 					return true;
 			}
 
-			if (m_intermediate_data_ptr->m_timeout_schedule_id != 0) {
-				if (m_intermediate_data_ptr->m_timeout_schedule_id != 0 && (m_intermediate_data_ptr->m_timeout_time <= std::chrono::steady_clock::now()))
+			if (intermediate_data_ptr->m_timeout_schedule_id != 0) {
+				if (intermediate_data_ptr->m_timeout_schedule_id != 0 && (intermediate_data_ptr->m_timeout_time <= std::chrono::steady_clock::now()))
 					return true;
 			}
 		}
@@ -149,18 +154,19 @@ protected:
 
 	ks_error do_acquire_cancel_error_locking(const ks_error& def_error, std::unique_lock<ks_mutex>& lock) {
 		if (!m_completed_result.is_completed()) {
-			ASSERT(m_intermediate_data_ptr != nullptr);
+			auto intermediate_data_ptr = m_intermediate_data_ptr;
+			ASSERT(intermediate_data_ptr != nullptr);
 
-			if (m_intermediate_data_ptr->m_cancel_error.get_code() != 0)
-				return m_intermediate_data_ptr->m_cancel_error;
+			if (intermediate_data_ptr->m_cancel_error.get_code() != 0)
+				return intermediate_data_ptr->m_cancel_error;
 
-			if (m_intermediate_data_ptr->m_living_context.__is_controller_present()) {
-				if (m_intermediate_data_ptr->m_living_context.__check_cancel_all_ctrl() || m_intermediate_data_ptr->m_living_context.__check_owner_expired())
+			if (intermediate_data_ptr->m_living_context.__is_controller_present()) {
+				if (intermediate_data_ptr->m_living_context.__check_cancel_all_ctrl() || intermediate_data_ptr->m_living_context.__check_owner_expired())
 					return ks_error::cancelled_error();
 			}
 
-			if (m_intermediate_data_ptr->m_timeout_schedule_id != 0) {
-				if (m_intermediate_data_ptr->m_timeout_schedule_id != 0 && (m_intermediate_data_ptr->m_timeout_time <= std::chrono::steady_clock::now()))
+			if (intermediate_data_ptr->m_timeout_schedule_id != 0) {
+				if (intermediate_data_ptr->m_timeout_schedule_id != 0 && (intermediate_data_ptr->m_timeout_time <= std::chrono::steady_clock::now()))
 					return ks_error::timeout_error();
 			}
 		}
@@ -258,12 +264,13 @@ protected:
 
 	void do_add_next_locked(const ks_raw_future_ptr& next_future, std::unique_lock<ks_mutex>& lock) {
 		if (!m_completed_result.is_completed()) {
-			ASSERT(m_intermediate_data_ptr != nullptr);
+			auto intermediate_data_ptr = m_intermediate_data_ptr;
+			ASSERT(intermediate_data_ptr != nullptr);
 
-			if (m_intermediate_data_ptr->m_next_future_0 == nullptr)
-				m_intermediate_data_ptr->m_next_future_0 = next_future;
+			if (intermediate_data_ptr->m_next_future_0 == nullptr)
+				intermediate_data_ptr->m_next_future_0 = next_future;
 			else
-				m_intermediate_data_ptr->m_next_future_more.push_back(next_future);
+				intermediate_data_ptr->m_next_future_more.push_back(next_future);
 		}
 		else {
 			ks_raw_result result = m_completed_result;
@@ -286,14 +293,15 @@ protected:
 			return;
 
 		if (!m_completed_result.is_completed()) {
-			ASSERT(m_intermediate_data_ptr != nullptr);
+			auto intermediate_data_ptr = m_intermediate_data_ptr;
+			ASSERT(intermediate_data_ptr != nullptr);
 
 			auto next_future_it = next_futures.cbegin();
-			if (m_intermediate_data_ptr->m_next_future_0 == nullptr)
-				m_intermediate_data_ptr->m_next_future_0 = *next_future_it++;
+			if (intermediate_data_ptr->m_next_future_0 == nullptr)
+				intermediate_data_ptr->m_next_future_0 = *next_future_it++;
 			if (next_future_it != next_futures.cend()) {
-				m_intermediate_data_ptr->m_next_future_more.insert(
-					m_intermediate_data_ptr->m_next_future_more.end(),
+				intermediate_data_ptr->m_next_future_more.insert(
+					intermediate_data_ptr->m_next_future_more.end(),
 					next_future_it, next_futures.cend());
 			}
 		}
@@ -329,22 +337,23 @@ protected:
 		m_completed_result = result.require_completed_or_error();
 		m_completed_prefer_apartment = prefer_apartment;
 
-		if (m_intermediate_data_ptr != nullptr) {
-			if (m_intermediate_data_ptr->m_completion_cv_waiting_rc != 0) {
-				if (m_intermediate_data_ptr->m_completion_cv_belong_pid == __native_get_current_pid())
-					m_intermediate_data_ptr->m_completion_cv.notify_all();
+		auto intermediate_data_ptr = m_intermediate_data_ptr;
+		if (intermediate_data_ptr != nullptr) {
+			if (intermediate_data_ptr->m_completion_cv_waiting_rc != 0) {
+				if (intermediate_data_ptr->m_completion_cv_belong_pid == __native_get_current_pid())
+					intermediate_data_ptr->m_completion_cv.notify_all();
 				else
 					ASSERT(false);  //子进程不要notify，会有几率卡死！（若子进程内执行wait，则会更新子进程内记录的belong_pid的，那么就会正常notify）
 			}
 
-			for (ks_apartment* apartment : m_intermediate_data_ptr->m_waiting_for_me_apartment_set) {
+			for (ks_apartment* apartment : intermediate_data_ptr->m_waiting_for_me_apartment_set) {
 				apartment->__do_notify_nested_pump_loop_for_extern_waiting(this);
 			}
 
-			if (m_intermediate_data_ptr->m_timeout_schedule_id != 0) {
-				uint64_t timeout_schedule_id = m_intermediate_data_ptr->m_timeout_schedule_id;
-				m_intermediate_data_ptr->m_timeout_schedule_id = 0;
-				m_intermediate_data_ptr->m_timeout_time = {};
+			if (intermediate_data_ptr->m_timeout_schedule_id != 0) {
+				uint64_t timeout_schedule_id = intermediate_data_ptr->m_timeout_schedule_id;
+				intermediate_data_ptr->m_timeout_schedule_id = 0;
+				intermediate_data_ptr->m_timeout_time = {};
 
 				ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
 				timeout_apartment->try_unschedule(timeout_schedule_id);
@@ -353,20 +362,20 @@ protected:
 
 		ks_raw_future_ptr t_next_future_0;
 		std::vector<ks_raw_future_ptr> t_next_future_more;
-		if (m_intermediate_data_ptr != nullptr) {
-			t_next_future_0.swap(m_intermediate_data_ptr->m_next_future_0);
-			t_next_future_more.swap(m_intermediate_data_ptr->m_next_future_more);
-			m_intermediate_data_ptr->m_next_future_0 = nullptr;
-			m_intermediate_data_ptr->m_next_future_more.clear();
+		if (intermediate_data_ptr != nullptr) {
+			t_next_future_0.swap(intermediate_data_ptr->m_next_future_0);
+			t_next_future_more.swap(intermediate_data_ptr->m_next_future_more);
+			intermediate_data_ptr->m_next_future_0 = nullptr;
+			intermediate_data_ptr->m_next_future_more.clear();
 
-			m_intermediate_data_ptr->m_living_context = ks_async_context::__empty_inst(); //clear
+			intermediate_data_ptr->m_living_context = ks_async_context::__empty_inst(); //clear
 			do_reset_extra_data_locked(lock);
-			m_intermediate_data_ptr.reset(); //completed后清除
+			intermediate_data_ptr.reset(); //completed后清除
 		}
 
-		ks_raw_result completed_result = m_completed_result;
-
 		if (t_next_future_0 != nullptr || !t_next_future_more.empty()) {
+			ks_raw_result completed_result = m_completed_result;
+
 			if (from_internal) {
 				lock.unlock(); //按说内部流程无需解锁（除非外部不合理乱用0x10000优先级）
 
@@ -411,23 +420,24 @@ protected:
 		if (m_completed_result.is_completed())
 			return;
 
-		ASSERT(m_intermediate_data_ptr != nullptr);
+		auto intermediate_data_ptr = m_intermediate_data_ptr;
+		ASSERT(intermediate_data_ptr != nullptr);
 
-		if (m_intermediate_data_ptr->m_timeout_schedule_id != 0) {
+		if (intermediate_data_ptr->m_timeout_schedule_id != 0) {
 			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
-			timeout_apartment->try_unschedule(m_intermediate_data_ptr->m_timeout_schedule_id);
-			m_intermediate_data_ptr->m_timeout_schedule_id = 0;
-			m_intermediate_data_ptr->m_timeout_time = {};
+			timeout_apartment->try_unschedule(intermediate_data_ptr->m_timeout_schedule_id);
+			intermediate_data_ptr->m_timeout_schedule_id = 0;
+			intermediate_data_ptr->m_timeout_time = {};
 		}
 
 		if (timeout <= 0) 
 			return; //infinity
 
 		//not infinity
-		m_intermediate_data_ptr->m_timeout_time = m_intermediate_data_ptr->m_create_time + std::chrono::milliseconds(timeout);
+		intermediate_data_ptr->m_timeout_time = intermediate_data_ptr->m_create_time + std::chrono::milliseconds(timeout);
 
 		const std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
-		const int64_t timeout_remain_ms = std::chrono::duration_cast<std::chrono::milliseconds>(m_intermediate_data_ptr->m_timeout_time - now_time).count();
+		const int64_t timeout_remain_ms = std::chrono::duration_cast<std::chrono::milliseconds>(intermediate_data_ptr->m_timeout_time - now_time).count();
 		if (timeout_remain_ms <= 0) {
 			if (!m_completed_result.is_completed()) {
 				lock.unlock();
@@ -437,22 +447,22 @@ protected:
 		else {
 			//schedule timeout
 			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
-			m_intermediate_data_ptr->m_timeout_schedule_id = timeout_apartment->schedule_delayed(
-				[this, this_shared = this->shared_from_this(), schedule_id = m_intermediate_data_ptr->m_timeout_schedule_id, error, backtrack]() -> void {
+			intermediate_data_ptr->m_timeout_schedule_id = timeout_apartment->schedule_delayed(
+				[this, this_shared = this->shared_from_this(), intermediate_data_ptr, schedule_id = intermediate_data_ptr->m_timeout_schedule_id, error, backtrack]() -> void {
 				std::unique_lock<ks_mutex> lock2(m_mutex);
 				if (m_completed_result.is_completed())
 					return;
 
-				ASSERT(m_intermediate_data_ptr != nullptr);
-				if (schedule_id != m_intermediate_data_ptr->m_timeout_schedule_id)
+				ASSERT(intermediate_data_ptr != nullptr);
+				if (schedule_id != intermediate_data_ptr->m_timeout_schedule_id)
 					return;
 
-				m_intermediate_data_ptr->m_timeout_schedule_id = 0; //reset
+				intermediate_data_ptr->m_timeout_schedule_id = 0; //reset
 
 				lock2.unlock();
 				this->do_try_cancel(error, backtrack); //will become timeout
 			}, 0, timeout_remain_ms);
-			if (m_intermediate_data_ptr->m_timeout_schedule_id == 0) {
+			if (intermediate_data_ptr->m_timeout_schedule_id == 0) {
 				ASSERT(false);
 				return;
 			}
@@ -530,8 +540,7 @@ public:
 		ASSERT(m_mode == ks_raw_future_mode::DX);
 
 		ASSERT(m_intermediate_data_ptr == nullptr);
-
-		do_init_base_with_result_locked(spec_apartment, completed_result, lock, false);
+		do_init_with_result_locked(spec_apartment, completed_result, lock, false);
 	}
 
 public: //override ks_raw_promise's methods
