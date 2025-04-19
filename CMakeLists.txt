@@ -78,7 +78,7 @@ set(MY_KTL_SOURCE_FILES
 	ktl/ks_functional.h
 	ktl/ks_type_traits.h
 	ktl/ks_any.h
-	ktl/ks_deferrer.h
+	ktl/ks_defer.h
 	ktl/ks_concurrency.h
 	ktl/ks_source_location.h
 )
@@ -133,7 +133,7 @@ set(PUBLIC_KTL_HEADER_FILES
 	ktl/ks_functional.h
 	ktl/ks_type_traits.h
 	ktl/ks_any.h
-	ktl/ks_deferrer.h
+	ktl/ks_defer.h
 	ktl/ks_concurrency.h
 	ktl/ks_source_location.h
 )

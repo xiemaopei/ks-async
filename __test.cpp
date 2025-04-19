@@ -64,7 +64,7 @@ void test_promise() {
     g_exit_latch.add(1);
     std::cout << "test promise ... ";
 
-    ks_promise<std::string> promise(new_instance);
+    ks_promise<std::string> promise(std::create_inst);
     promise.get_future()
         .on_completion(ks_apartment::default_mta(), make_async_context(), [](const auto& result) {
             _output_result("completion: ", result);

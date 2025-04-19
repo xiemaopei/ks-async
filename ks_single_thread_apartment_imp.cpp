@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "ks_single_thread_apartment_imp.h"
-#include "ktl/ks_deferrer.h"
+#include "ktl/ks_defer.h"
 #include <thread>
 #include <algorithm>
 #include <sstream>
@@ -278,7 +278,7 @@ void ks_single_thread_apartment_imp::_single_thread_proc(ks_single_thread_apartm
 #if __KS_APARTMENT_ATFORK_ENABLED
 		++d->working_rc;
 
-		ks_deferrer defer_dec_working_rc([&d, &lock]() {
+		ks_defer defer_dec_working_rc([&d, &lock]() {
 			ASSERT(lock.owns_lock());
 			if (--d->working_rc == 0)
 				d->working_done_cv.notify_all();

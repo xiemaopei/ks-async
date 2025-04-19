@@ -17,7 +17,7 @@ limitations under the License.
 #include "ks_raw_promise.h"
 #include "ks_raw_internal_helper.hpp"
 #include "../ktl/ks_concurrency.h"
-#include "../ktl/ks_deferrer.h"
+#include "../ktl/ks_defer.h"
 #include <algorithm>
 #include <set>
 

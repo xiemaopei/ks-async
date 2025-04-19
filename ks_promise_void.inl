@@ -18,7 +18,7 @@ limitations under the License.
 template <>
 class ks_promise<void> final {
 public:
-	explicit ks_promise(new_instance_t) : m_nothing_promise(new_instance) {}
+	explicit ks_promise(std::create_inst_t) : m_nothing_promise(std::create_inst) {}
 
 	ks_promise(ks_promise&&) noexcept = default;
 	ks_promise(const ks_promise&) = default;

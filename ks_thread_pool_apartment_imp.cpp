@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "ks_thread_pool_apartment_imp.h"
-#include "ktl/ks_deferrer.h"
+#include "ktl/ks_defer.h"
 #include <thread>
 #include <algorithm>
 #include <sstream>
@@ -280,7 +280,7 @@ void ks_thread_pool_apartment_imp::_now_thread_proc(ks_thread_pool_apartment_imp
 #if __KS_APARTMENT_ATFORK_ENABLED
 		++d->working_rc;
 
-		ks_deferrer defer_dec_working_rc([&d, &lock]() {
+		ks_defer defer_dec_working_rc([&d, &lock]() {
 			ASSERT(lock.owns_lock());
 			if (--d->working_rc == 0)
 				d->working_done_cv.notify_all();
@@ -310,7 +310,7 @@ void ks_thread_pool_apartment_imp::_now_thread_proc(ks_thread_pool_apartment_imp
 				tls_current_now_thread_busy_for_idle_flag = true;
 			}
 
-			ks_deferrer defer_dec_busy_thread_count([&d, busy_for_idle_flag, &lock]() {
+			ks_defer defer_dec_busy_thread_count([&d, busy_for_idle_flag, &lock]() {
 				ASSERT(lock.owns_lock());
 				if (busy_for_idle_flag) {
 					--d->busy_thread_count_for_idle;
@@ -578,7 +578,7 @@ bool ks_thread_pool_apartment_imp::__do_run_nested_pump_loop_for_extern_waiting(
 				tls_current_now_thread_busy_for_idle_flag = true;
 			}
 
-			ks_deferrer defer_dec_busy_thread_count([&d, busy_for_idle_flag_promoting, &lock]() {
+			ks_defer defer_dec_busy_thread_count([&d, busy_for_idle_flag_promoting, &lock]() {
 				ASSERT(lock.owns_lock());
 				if (busy_for_idle_flag_promoting) {
 					--d->busy_thread_count_for_idle;

@@ -20,20 +20,20 @@ limitations under the License.
 #include <vector>
 
 
-#ifndef __KS_DEFERRER_DEF
-#define __KS_DEFERRER_DEF
+#ifndef __KS_DEFER_DEF
+#define __KS_DEFER_DEF
 
-class ks_deferrer {
+class ks_defer {
 public:
-	ks_deferrer() {}
-	explicit ks_deferrer(std::function<void()>&& fn) { this->add(std::move(fn)); }
-	_DISABLE_COPY_CONSTRUCTOR(ks_deferrer);
+	ks_defer() {}
+	explicit ks_defer(std::function<void()>&& fn) { this->add(std::move(fn)); }
+	_DISABLE_COPY_CONSTRUCTOR(ks_defer);
 
-	~ks_deferrer() { this->apply(); }
+	~ks_defer() { this->apply(); }
 
 public:
 	template <class FN, class _ = std::enable_if_t<std::is_convertible_v<FN, std::function<void()>>>>
-	ks_deferrer& add(FN&& fn) {
+	ks_defer& add(FN&& fn) {
 		if (!m_pri_fn)
 			m_pri_fn = std::forward<FN>(fn);
 		else
@@ -63,4 +63,4 @@ private:
 	std::vector<std::function<void()>> m_more_fns;
 };
 
-#endif //__KS_DEFERRER_DEF
+#endif //__KS_DEFER_DEF

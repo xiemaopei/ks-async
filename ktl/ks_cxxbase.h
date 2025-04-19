@@ -33,11 +33,13 @@ struct nothing_t {};
 constexpr nothing_t nothing = {};  //nothing相当于其他现代语言中的unit，但unit这个名字与uint太容易混淆了，所以我们用nothing来命名
 #endif //__NOTHING_DEF
 
-#ifndef __NEW_INSTANCE_DEF
-#define __NEW_INSTANCE_DEF
-enum class new_instance_t { __v };
-constexpr new_instance_t new_instance = new_instance_t::__v;
-#endif //__NEW_INSTANCE_DEF
+#ifndef __CREATE_INST_DEF
+#define __CREATE_INST_DEF
+namespace std {
+	enum class create_inst_t { __v };
+	constexpr create_inst_t create_inst = create_inst_t::__v;
+}
+#endif //__NEW_INST_DEF
 
 
 //宏_ABSTRACT定义
