@@ -25,13 +25,10 @@ limitations under the License.
 template <class T>
 class ks_promise final {
 public:
-	ks_promise() : m_raw_promise(__do_create_raw_promise()) {}
-	ks_promise(nullptr_t) : m_raw_promise(nullptr) {}
+	explicit ks_promise(new_instance_t) : m_raw_promise(__do_create_raw_promise()) {}
 
-	ks_promise(const ks_promise&) = default;
-	ks_promise& operator=(const ks_promise&) = default;
 	ks_promise(ks_promise&&) noexcept = default;
-	ks_promise& operator=(ks_promise&&) noexcept = default;
+	ks_promise(const ks_promise&) = default;
 
 	//让ks_promise看起来像一个智能指针
 	ks_promise* operator->() { return this; }
@@ -40,11 +37,6 @@ public:
 	using arg_type = T;
 	using value_type = T;
 	using this_promise_type = ks_promise<T>;
-
-public:
-	static ks_promise<T> create() {
-		return ks_promise<T>::__from_raw(__do_create_raw_promise());
-	}
 
 public:
 	bool is_valid() const {

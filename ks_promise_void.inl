@@ -18,13 +18,10 @@ limitations under the License.
 template <>
 class ks_promise<void> final {
 public:
-	ks_promise() : m_nothing_promise() {}
-	ks_promise(nullptr_t) : m_nothing_promise(nullptr) {}
+	explicit ks_promise(new_instance_t) : m_nothing_promise(new_instance) {}
 
-	ks_promise(const ks_promise&) = default;
-	ks_promise& operator=(const ks_promise&) = default;
 	ks_promise(ks_promise&&) noexcept = default;
-	ks_promise& operator=(ks_promise&&) noexcept = default;
+	ks_promise(const ks_promise&) = default;
 
 	//让ks_promise看起来像一个智能指针
 	ks_promise* operator->() { return this; }
@@ -33,11 +30,6 @@ public:
 	using arg_type = void;
 	using value_type = void;
 	using this_promise_type = ks_promise<void>;
-
-public:
-	static ks_promise<void> create() {
-		return ks_promise<nothing_t>::create();
-	}
 
 public:
 	bool is_valid() const {

@@ -8,10 +8,9 @@
 
 class ks_async_flow {
 public:
-	explicit ks_async_flow() : m_raw_flow(ks_raw_async_flow::create()) {}
+	ks_async_flow() : m_raw_flow(ks_raw_async_flow::create()) {}
 
 	ks_async_flow(ks_async_flow&&) noexcept = default;
-	_DISABLE_COPY_CONSTRUCTOR(ks_async_flow);
 
 public:
 	void set_j(size_t j) const {

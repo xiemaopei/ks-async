@@ -25,13 +25,19 @@ limitations under the License.
 using byte = uint8_t;
 using uint = unsigned int;
 using nullptr_t = decltype(nullptr);
-using HRESULT = std::conditional<sizeof(long) == 4, long, int32_t>::type;
+using HRESULT = std::conditional<sizeof(long) == 4, long, int>::type;
 
 #ifndef __NOTHING_DEF
 #define __NOTHING_DEF
 struct nothing_t {};
 constexpr nothing_t nothing = {};  //nothing相当于其他现代语言中的unit，但unit这个名字与uint太容易混淆了，所以我们用nothing来命名
 #endif //__NOTHING_DEF
+
+#ifndef __NEW_INSTANCE_DEF
+#define __NEW_INSTANCE_DEF
+enum class new_instance_t { __v };
+constexpr new_instance_t new_instance = new_instance_t::__v;
+#endif //__NEW_INSTANCE_DEF
 
 
 //宏_ABSTRACT定义
