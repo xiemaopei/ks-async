@@ -10,6 +10,7 @@ class ks_async_flow {
 public:
 	ks_async_flow() : m_raw_flow(ks_raw_async_flow::create()) {}
 
+	_DISABLE_COPY_CONSTRUCTOR(ks_async_flow);
 	ks_async_flow(ks_async_flow&&) noexcept = default;
 
 public:

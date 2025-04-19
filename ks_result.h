@@ -30,6 +30,7 @@ public:
 
 	ks_result(const ks_result&) = default;
 	ks_result(ks_result&&) noexcept = default;
+
 	ks_result& operator=(const ks_result&) = default;
 	ks_result& operator=(ks_result&&) noexcept = default;
 

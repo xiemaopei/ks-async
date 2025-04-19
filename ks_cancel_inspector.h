@@ -20,8 +20,7 @@ limitations under the License.
 
 class ks_cancel_inspector {
 protected:
-	ks_cancel_inspector() = default;
-	virtual ~ks_cancel_inspector() = default;  //protected
+	ks_cancel_inspector() {}
 	_DISABLE_COPY_CONSTRUCTOR(ks_cancel_inspector);
 
 public:

@@ -24,9 +24,9 @@ public:
 	ks_error() : m_code(0), m_payload_any() {}
 
 	ks_error(const ks_error&) = default;
-	ks_error& operator=(const ks_error&) = default;
-
 	ks_error(ks_error&&) noexcept = default;
+
+	ks_error& operator=(const ks_error&) = default;
 	ks_error& operator=(ks_error&&) noexcept = default;
 
 public:
