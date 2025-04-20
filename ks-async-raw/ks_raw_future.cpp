@@ -64,7 +64,7 @@ enum class ks_raw_future_mode {
 
 class ks_raw_future_baseimp : public ks_raw_future, public std::enable_shared_from_this<ks_raw_future> {
 protected:
-	explicit ks_raw_future_baseimp(ks_raw_future_mode mode) : m_mode(mode) {}
+	explicit ks_raw_future_baseimp() = default;
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_future_baseimp);
 
 	struct __INTERMEDIATE_DATA;
@@ -72,7 +72,7 @@ protected:
 		ASSERT(intermediate_data_ptr != nullptr);
 		ASSERT(intermediate_data_ptr == __get_intermediate_data_ptr(lock));
 
-		if (spec_apartment == nullptr && (m_mode == ks_raw_future_mode::DX || m_mode == ks_raw_future_mode::PROMISE))
+		if (spec_apartment == nullptr && __is_original_future())
 			spec_apartment = ks_apartment::default_mta();
 
 		intermediate_data_ptr->m_spec_apartment = spec_apartment;
@@ -83,7 +83,7 @@ protected:
 	void do_init_with_result_locked(ks_apartment* spec_apartment, const ks_raw_result& completed_result, std::unique_lock<ks_mutex>& lock, bool must_keep_locked) {
 		ASSERT(lock.owns_lock() && !must_keep_locked);
 
-		if (spec_apartment == nullptr && (m_mode == ks_raw_future_mode::DX || m_mode == ks_raw_future_mode::PROMISE))
+		if (spec_apartment == nullptr && __is_original_future())
 			spec_apartment = ks_apartment::default_mta();
 
 		ASSERT(__get_intermediate_data_ptr(lock) == nullptr);
@@ -353,7 +353,7 @@ protected:
 				intermediate_data_ptr->m_timeout_schedule_id = 0;
 				intermediate_data_ptr->m_timeout_time = {};
 
-				ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
+				ks_apartment* timeout_apartment = this->do_determine_timeout_apartment(intermediate_data_ptr->m_spec_apartment);
 				timeout_apartment->try_unschedule(timeout_schedule_id);
 			}
 		}
@@ -419,7 +419,7 @@ protected:
 		ASSERT(intermediate_data_ptr != nullptr);
 
 		if (intermediate_data_ptr->m_timeout_schedule_id != 0) {
-			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
+			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment(intermediate_data_ptr->m_spec_apartment);
 			timeout_apartment->try_unschedule(intermediate_data_ptr->m_timeout_schedule_id);
 			intermediate_data_ptr->m_timeout_schedule_id = 0;
 			intermediate_data_ptr->m_timeout_time = {};
@@ -441,7 +441,7 @@ protected:
 		}
 		else {
 			//schedule timeout
-			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment();
+			ks_apartment* timeout_apartment = this->do_determine_timeout_apartment(intermediate_data_ptr->m_spec_apartment);
 			intermediate_data_ptr->m_timeout_schedule_id = timeout_apartment->schedule_delayed(
 				[this, this_shared = this->shared_from_this(), intermediate_data_ptr, schedule_id = intermediate_data_ptr->m_timeout_schedule_id, error, backtrack]() -> void {
 				std::unique_lock<ks_mutex> lock2(m_mutex);
@@ -468,15 +468,17 @@ protected:
 	static inline ks_apartment* do_determine_prefer_apartment(ks_apartment* spec_apartment, ks_apartment* advice_apartment) {
 		if (spec_apartment != nullptr)
 			return spec_apartment;
-
-		if (advice_apartment != nullptr)
+		else if (advice_apartment != nullptr)
 			return advice_apartment;
-
-		return ks_apartment::current_thread_apartment_or_default_mta();
+		else
+			return ks_apartment::current_thread_apartment_or_default_mta();
 	}
 
-	static inline ks_apartment* do_determine_timeout_apartment() {
-		return ks_apartment::default_mta();
+	static inline ks_apartment* do_determine_timeout_apartment(ks_apartment* spec_apartment) {
+		if (spec_apartment != nullptr)
+			return spec_apartment;
+		else
+			return ks_apartment::default_mta();
 	}
 
 protected:
@@ -485,8 +487,6 @@ protected:
 #else
 	ks_mutex m_mutex;
 #endif
-
-	ks_raw_future_mode m_mode = ks_raw_future_mode::_INVALID; //const-like
 
 	ks_raw_result m_completed_result{};
 	ks_apartment* m_completed_prefer_apartment = nullptr;
@@ -514,6 +514,7 @@ protected:
 		int m_completion_cv_waiting_rc = 0;
 	};
 
+	virtual bool __is_original_future() = 0;
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) = 0;
 	virtual void __clear_intermediate_data_ptr(const std::shared_ptr<__INTERMEDIATE_DATA>& intermediate_data_ptr, std::unique_lock<ks_mutex>& lock) = 0; //completed后被清除
 
@@ -528,7 +529,9 @@ ks_mutex ks_raw_future_baseimp::m_mutex;
 class ks_raw_dx_future final : public ks_raw_future_baseimp {
 public:
 	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
-	explicit ks_raw_dx_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode) {}
+	explicit ks_raw_dx_future(ks_raw_future_mode dx_mode) {
+		ASSERT(dx_mode == ks_raw_future_mode::DX);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_dx_future);
 
 	void init(ks_apartment* spec_apartment, const ks_raw_result& completed_result) {
@@ -552,8 +555,7 @@ protected:
 	}
 
 private:
-	using __INTERMEDIATE_DATA_EX = void;
-
+	virtual bool __is_original_future() override { return true; }
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return nullptr; }
 	virtual void __clear_intermediate_data_ptr(const std::shared_ptr<__INTERMEDIATE_DATA>& intermediate_data_ptr, std::unique_lock<ks_mutex>& lock) override { ASSERT(intermediate_data_ptr == nullptr); }
 };
@@ -562,7 +564,10 @@ private:
 class ks_raw_promise_future final : public ks_raw_future_baseimp, public ks_raw_promise {
 public:
 	//注：默认apartment原设计使用current_thread_apartment，现已改为使用default_mta
-	explicit ks_raw_promise_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {}
+	explicit ks_raw_promise_future(ks_raw_future_mode promise_mode) 
+		: m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {
+		ASSERT(promise_mode == ks_raw_future_mode::PROMISE);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_promise_future);
 
 	void init(ks_apartment* spec_apartment) {
@@ -616,6 +621,7 @@ private:
 
 	std::shared_ptr<__INTERMEDIATE_DATA_EX> m_intermediate_data_ex_ptr;
 
+	virtual bool __is_original_future() override { return true; }
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return m_intermediate_data_ex_ptr; }
 	inline  std::shared_ptr<__INTERMEDIATE_DATA_EX> __get_intermediate_data_ex_ptr(std::unique_lock<ks_mutex>& lock) const { return m_intermediate_data_ex_ptr; }
 
@@ -630,7 +636,10 @@ private:
 
 class ks_raw_task_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_task_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {}
+	explicit ks_raw_task_future(ks_raw_future_mode task_mode)
+		: m_task_mode(task_mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {
+		ASSERT(task_mode == ks_raw_future_mode::TASK || task_mode == ks_raw_future_mode::TASK_DELAYED);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_task_future);
 
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_result()>&& task_fn, const ks_async_context& living_context, int64_t delay) {
@@ -694,7 +703,7 @@ private:
 				lock.lock();
 		}
 		else {
-			intermediate_data_ex_ptr->m_pending_schedule_id = (m_mode == ks_raw_future_mode::TASK)
+			intermediate_data_ex_ptr->m_pending_schedule_id = (m_task_mode == ks_raw_future_mode::TASK)
 				? prefer_apartment->schedule(std::move(pending_schedule_fn), priority)
 				: prefer_apartment->schedule_delayed(std::move(pending_schedule_fn), priority, intermediate_data_ex_ptr->m_delay);
 			if (intermediate_data_ex_ptr->m_pending_schedule_id == 0) {
@@ -725,7 +734,7 @@ protected:
 			intermediate_data_ex_ptr->m_cancel_error = error;
 
 			//若为延时任务，则执行unschedule，task-future结果状态将成为rejected
-			const bool is_delaying_schedule_task = (m_mode == ks_raw_future_mode::TASK_DELAYED && intermediate_data_ex_ptr->m_delay >= 0);
+			const bool is_delaying_schedule_task = (m_task_mode == ks_raw_future_mode::TASK_DELAYED && intermediate_data_ex_ptr->m_delay >= 0);
 			if (is_delaying_schedule_task) {
 				if (intermediate_data_ex_ptr->m_pending_schedule_id != 0) {
 					intermediate_data_ex_ptr->m_spec_apartment->try_unschedule(intermediate_data_ex_ptr->m_pending_schedule_id);
@@ -744,8 +753,10 @@ private:
 		uint64_t m_pending_schedule_id = 0;
 	};
 
+	const ks_raw_future_mode m_task_mode;  //const-like
 	std::shared_ptr<__INTERMEDIATE_DATA_EX> m_intermediate_data_ex_ptr;
 
+	virtual bool __is_original_future() override { return false; }
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return m_intermediate_data_ex_ptr; }
 	inline  std::shared_ptr<__INTERMEDIATE_DATA_EX> __get_intermediate_data_ex_ptr(std::unique_lock<ks_mutex>& lock) const { return m_intermediate_data_ex_ptr; }
 
@@ -763,7 +774,16 @@ private:
 
 class ks_raw_pipe_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_pipe_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {}
+	explicit ks_raw_pipe_future(ks_raw_future_mode pipe_mode) 
+		: m_pipe_mode(pipe_mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {
+		ASSERT(pipe_mode == ks_raw_future_mode::THEN
+			|| pipe_mode == ks_raw_future_mode::TRAP
+			|| pipe_mode == ks_raw_future_mode::TRANSFORM
+			|| pipe_mode == ks_raw_future_mode::ON_SUCCESS
+			|| pipe_mode == ks_raw_future_mode::ON_FAILURE
+			|| pipe_mode == ks_raw_future_mode::ON_COMPLETION
+			|| pipe_mode == ks_raw_future_mode::FORWARD);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_pipe_future);
 
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_result(const ks_raw_result&)>&& fn_ex, const ks_async_context& living_context, const ks_raw_future_ptr& prev_future) {
@@ -801,7 +821,7 @@ protected:
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
 		bool could_skip_run = false;
-		switch (m_mode) {
+		switch (m_pipe_mode) {
 		case ks_raw_future_mode::THEN:
 		case ks_raw_future_mode::ON_SUCCESS:
 			could_skip_run = !prev_result.is_value();
@@ -896,7 +916,7 @@ protected:
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
 		bool cancelable = true;
-		switch (m_mode) {
+		switch (m_pipe_mode) {
 		case ks_raw_future_mode::THEN:
 		case ks_raw_future_mode::TRAP:
 		case ks_raw_future_mode::TRANSFORM:
@@ -934,6 +954,8 @@ private:
 		std::weak_ptr<ks_raw_future> m_prev_future_weak;             //在complete后被自动清除
 	};
 
+	virtual bool __is_original_future() override { return false; }
+	const ks_raw_future_mode m_pipe_mode;  //const-like
 	std::shared_ptr<__INTERMEDIATE_DATA_EX> m_intermediate_data_ex_ptr;
 
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return m_intermediate_data_ex_ptr; }
@@ -953,7 +975,12 @@ private:
 
 class ks_raw_flatten_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_flatten_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {}
+	explicit ks_raw_flatten_future(ks_raw_future_mode flatten_mode) 
+		: m_flatten_mode(flatten_mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {
+		ASSERT(flatten_mode == ks_raw_future_mode::FLATTEN_THEN
+			|| flatten_mode == ks_raw_future_mode::FLATTEN_TRAP
+			|| flatten_mode == ks_raw_future_mode::FLATTEN_TRANSFORM);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_flatten_future);
 		
 	void init(ks_apartment* spec_apartment, std::function<ks_raw_future_ptr(const ks_raw_result&)>&& afn_ex, const ks_async_context& living_context, const ks_raw_future_ptr& prev_future) {
@@ -1068,8 +1095,10 @@ private:
 		std::weak_ptr<ks_raw_future> m_extern_future_weak;
 	};
 
+	const ks_raw_future_mode m_flatten_mode;  //const-like
 	std::shared_ptr<__INTERMEDIATE_DATA_EX> m_intermediate_data_ex_ptr;
 
+	virtual bool __is_original_future() override { return false; }
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return m_intermediate_data_ex_ptr; }
 	inline  std::shared_ptr<__INTERMEDIATE_DATA_EX> __get_intermediate_data_ex_ptr(std::unique_lock<ks_mutex>& lock) const { return m_intermediate_data_ex_ptr; }
 
@@ -1088,7 +1117,12 @@ private:
 
 class ks_raw_aggr_future final : public ks_raw_future_baseimp {
 public:
-	explicit ks_raw_aggr_future(ks_raw_future_mode mode) : ks_raw_future_baseimp(mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {}
+	explicit ks_raw_aggr_future(ks_raw_future_mode aggr_mode) 
+		: m_aggr_mode(aggr_mode), m_intermediate_data_ex_ptr(std::make_shared<__INTERMEDIATE_DATA_EX>()) {
+		ASSERT(aggr_mode == ks_raw_future_mode::ALL
+			|| aggr_mode == ks_raw_future_mode::ALL_COMPLETED
+			|| aggr_mode == ks_raw_future_mode::ANY);
+	}
 	_DISABLE_COPY_CONSTRUCTOR(ks_raw_aggr_future);
 
 	void init(ks_apartment* spec_apartment, const std::vector<ks_raw_future_ptr>& prev_futures) {
@@ -1211,7 +1245,7 @@ private:
 		ASSERT(intermediate_data_ex_ptr != nullptr);
 
 		//check and try settle me ...
-		switch (m_mode) {
+		switch (m_aggr_mode) {
 		case ks_raw_future_mode::ALL:
 			if (intermediate_data_ex_ptr->m_prev_first_rejected_index != -1) {
 				//前序任务出现失败
@@ -1294,8 +1328,10 @@ private:
 		size_t m_prev_first_rejected_index = -1; //在触发后被自动清除
 	};
 
+	const ks_raw_future_mode m_aggr_mode;  //const-like
 	std::shared_ptr<__INTERMEDIATE_DATA_EX> m_intermediate_data_ex_ptr;
 
+	virtual bool __is_original_future() override { return false; }
 	virtual std::shared_ptr<__INTERMEDIATE_DATA> __get_intermediate_data_ptr(std::unique_lock<ks_mutex>& lock) override { return m_intermediate_data_ex_ptr; }
 	inline  std::shared_ptr<__INTERMEDIATE_DATA_EX> __get_intermediate_data_ex_ptr(std::unique_lock<ks_mutex>& lock) const { return m_intermediate_data_ex_ptr; }
 
